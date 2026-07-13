@@ -85,7 +85,7 @@ const debouncedSidebarSearch = useDebounceFn(emitSearch, 200);
     <div class="flex flex-col w-full">
       <!-- 折叠按钮 -->
       <div
-        class="flex items-center px-3 h-10"
+        class="flex items-center px-3 h-10 w-full"
         :class="
           isMacOS
             ? collapse
