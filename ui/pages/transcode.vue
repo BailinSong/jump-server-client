@@ -243,6 +243,26 @@ watch(outputDir, () => {
   settingsError.value = "";
 });
 
+async function handleWindowDrag(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+
+  if (
+    event.button !== 0
+    || target?.closest("button")
+    || target?.closest('[role="button"]')
+    || target?.closest("input")
+    || target?.closest("select")
+  ) {
+    return;
+  }
+
+  try {
+    await useTauriWindowGetCurrentWindow().startDragging();
+  } catch {
+    // ignore when running in browser
+  }
+}
+
 async function optimizeWindowForTranscode() {
   try {
     const currentWindow = useTauriWindowGetCurrentWindow();
@@ -289,8 +309,8 @@ onBeforeUnmount(async () => {
 <template>
   <div class="transcode-page h-screen overflow-hidden">
     <div class="mx-auto flex h-full w-full max-w-[1500px] flex-col px-6 py-5 lg:px-8">
-      <header data-tauri-drag-region class="mb-2 h-8">
-        <div data-tauri-drag-region />
+      <header class="relative mb-2 h-8" @mousedown="handleWindowDrag">
+        <div data-tauri-drag-region class="absolute inset-0 z-0" />
       </header>
 
       <section

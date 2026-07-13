@@ -356,8 +356,13 @@ export const useAssetFetcher = (assetType: AssetPageType, scrollRef?: Ref<HTMLEl
         status: number
       }
 
+      if (!isLoading.value) return;
+      if (!isActiveForCurrentRoute()) return;
+
       const payload = event.payload as eventPayload;
       const status = payload.status;
+
+      hasMore.value = false;
 
       if (status === 401) {
         toast.add({

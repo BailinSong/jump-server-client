@@ -125,6 +125,26 @@ function toggleThemeMode() {
   manualSetTheme(isDarkMode.value ? "light" : "dark");
 }
 
+async function handleWindowDrag(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+
+  if (
+    event.button !== 0
+    || target?.closest("button")
+    || target?.closest('[role="button"]')
+    || target?.closest("input")
+    || target?.closest("select")
+  ) {
+    return;
+  }
+
+  try {
+    await useTauriWindowGetCurrentWindow().startDragging();
+  } catch {
+    // ignore when running in browser
+  }
+}
+
 async function optimizeWindowForVideoPlayer() {
   try {
     const currentWindow = useTauriWindowGetCurrentWindow();
@@ -183,10 +203,13 @@ onBeforeUnmount(async () => {
     />
 
     <div class="mx-auto flex h-full w-full max-w-[1700px] flex-col px-6 py-5 lg:px-8">
-      <header data-tauri-drag-region class="mb-2 flex items-center justify-between gap-4">
-        <div data-tauri-drag-region />
+      <header class="relative mb-2 h-8" @mousedown="handleWindowDrag">
+        <div data-tauri-drag-region class="absolute inset-0 z-0" />
 
-        <div class="flex items-center gap-2">
+        <div
+          class="relative z-10 flex h-full items-center justify-end gap-2 pointer-events-auto"
+          data-tauri-drag-region="false"
+        >
           <UButton
             color="neutral"
             variant="ghost"
@@ -195,6 +218,7 @@ onBeforeUnmount(async () => {
                 ? 'line-md:moon-filled-to-sunny-filled-loop-transition'
                 : 'line-md:sunny-filled-loop-to-moon-filled-transition'
             "
+            data-tauri-drag-region="false"
             @click="toggleThemeMode"
           >
             {{ isDarkMode ? "切换浅色" : "切换暗色" }}
