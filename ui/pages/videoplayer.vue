@@ -199,8 +199,6 @@ onBeforeUnmount(async () => {
           >
             {{ isDarkMode ? "切换浅色" : "切换暗色" }}
           </UButton>
-
-          <UButton color="neutral" variant="ghost" to="/linux">返回主界面</UButton>
         </div>
       </header>
 

@@ -36,12 +36,6 @@ const sideBarItems = computed<NavigationMenuItem[]>(() => {
       disabled: isLoading.value
     },
     {
-      label: t("Menu.Other"),
-      icon: "lucide:boxes",
-      to: localePath("other"),
-      disabled: isLoading.value
-    },
-    {
       label: t("Menu.Database"),
       icon: "gravity-ui:database",
       to: localePath("database"),
@@ -60,25 +54,15 @@ const sideBarItems = computed<NavigationMenuItem[]>(() => {
       disabled: isLoading.value
     },
     {
+      label: t("Menu.Other"),
+      icon: "lucide:boxes",
+      to: localePath("other"),
+      disabled: isLoading.value
+    },
+    {
       label: t("Menu.Favorite"),
       icon: "gravity-ui:star",
       to: localePath("favorite"),
-      disabled: isLoading.value
-    },
-    {
-      label: t("Menu.Tool"),
-      type: "label"
-    },
-    {
-      label: t("Menu.Player"),
-      icon: "lucide:clapperboard",
-      to: localePath("videoplayer"),
-      disabled: isLoading.value
-    },
-    {
-      label: t("Menu.Transcode"),
-      icon: "lucide:repeat-2",
-      to: localePath({ path: "/transcode" }),
       disabled: isLoading.value
     }
   ];

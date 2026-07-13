@@ -3,6 +3,7 @@ import type { DropdownMenuItem } from "@nuxt/ui";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { LangType, ThemeType, UserData } from "~/types/index";
 
+import { LogicalPosition } from "@tauri-apps/api/dpi";
 import { useSettingManager } from "~/composables/useSettingManager";
 import { useUserInfoStore } from "~/store/modules/userInfo";
 import RecentSites from "./recentSites.vue";
@@ -29,6 +30,7 @@ const userInfoStore = useUserInfoStore();
 
 const { t, locales, locale } = useI18n();
 const { loggedIn, currentSite, userMap, currentUser } = storeToRefs(userInfoStore);
+const { isMacOS } = usePlatform();
 
 const {
   setLang,
@@ -181,6 +183,21 @@ const appearanceChildren = computed<DropdownMenuItem[][]>(() => [
   }))
 ]);
 
+const toolChildren = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      label: t("Menu.Player"),
+      icon: "lucide:clapperboard",
+      onClick: () => openToolWindow("videoplayer", t("Menu.Player"), "/videoplayer", 1480, 920, 1320, 860)
+    },
+    {
+      label: t("Menu.Transcode"),
+      icon: "lucide:repeat-2",
+      onClick: () => openToolWindow("transcode", t("Menu.Transcode"), "/transcode", 1180, 760, 960, 640)
+    }
+  ]
+]);
+
 const profileMenuItems = computed<DropdownMenuItem[][]>(() => [
   [
     {
@@ -197,6 +214,11 @@ const profileMenuItems = computed<DropdownMenuItem[][]>(() => [
       label: t("Common.Appearance"),
       icon: "solar:palette-linear",
       children: appearanceChildren.value
+    },
+    {
+      label: t("Menu.Tool"),
+      icon: "lucide:wrench",
+      children: toolChildren.value
     },
     {
       label: t("Common.Language"),
@@ -243,6 +265,54 @@ function handleLanguageChange(code: LangType) {
   if (!code || code === selectedLanguage.value) return;
 
   selectedLanguage.value = code;
+}
+
+async function openToolWindow(
+  label: string,
+  title: string,
+  path: string,
+  width: number,
+  height: number,
+  minWidth: number,
+  minHeight: number
+) {
+  const url = localePath({ path });
+
+  try {
+    const existing = await useTauriWebviewWindowWebviewWindow.getByLabel(label);
+
+    if (existing) {
+      if (await existing.isMinimized()) {
+        await existing.unminimize();
+      }
+
+      if (!(await existing.isVisible())) {
+        await existing.show();
+      }
+
+      await existing.setFocus();
+      return;
+    }
+
+    const isMac = isMacOS.value;
+
+    // eslint-disable-next-line no-new
+    new useTauriWebviewWindowWebviewWindow(label, {
+      title,
+      url,
+      width,
+      height,
+      minWidth,
+      minHeight,
+      hiddenTitle: true,
+      titleBarStyle: "overlay",
+      trafficLightPosition: new LogicalPosition(10, 22),
+      decorations: isMac,
+      shadow: isMac
+    });
+  } catch {
+    await navigateTo(url);
+  }
 }
 
 /**

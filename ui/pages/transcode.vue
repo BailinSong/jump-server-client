@@ -1,15 +1,27 @@
 <script setup lang="ts">
-import { storeToRefs } from "pinia";
-import { useTranscodeStore } from "~/store/modules/transcode";
 import type { FilenameStyle, OutputResolution, TranscodePower } from "~/store/modules/transcode";
 
+import { storeToRefs } from "pinia";
+import { useTranscodeStore } from "~/store/modules/transcode";
+
 definePageMeta({
-  layout: "default"
+  layout: false
 });
 
 const { t } = useI18n();
 const toast = useToast();
 const { isWindows } = usePlatform();
+
+const TRANSCODE_MIN_WIDTH = 960;
+const TRANSCODE_MIN_HEIGHT = 640;
+const TRANSCODE_TARGET_WIDTH = 1180;
+const TRANSCODE_TARGET_HEIGHT = 760;
+
+useHead({
+  bodyAttrs: {
+    class: "transcode-window-body"
+  }
+});
 
 const store = useTranscodeStore();
 const {
@@ -89,11 +101,6 @@ const formatDuration = (seconds?: number | null): string => {
 const hasTasks = computed(() => taskItems.value.length > 0);
 const hasActiveTasks = computed(() => processingCount.value > 0 || completedCount.value > 0);
 
-const pickArchivesSmart = async () => {
-  const append = taskItems.value.length > 0;
-  await pickArchives(append);
-};
-
 const pickArchives = async (append = false) => {
   try {
     const selected = (await useTauriDialogOpen({
@@ -119,6 +126,11 @@ const pickArchives = async (append = false) => {
       duration: 4000
     });
   }
+};
+
+const pickArchivesSmart = async () => {
+  const append = taskItems.value.length > 0;
+  await pickArchives(append);
 };
 
 const pickOutputDir = async () => {
@@ -230,83 +242,129 @@ const handleSettingsConfirm = () => {
 watch(outputDir, () => {
   settingsError.value = "";
 });
+
+async function optimizeWindowForTranscode() {
+  try {
+    const currentWindow = useTauriWindowGetCurrentWindow();
+    const minSize = new useTauriWindowLogicalSize(TRANSCODE_MIN_WIDTH, TRANSCODE_MIN_HEIGHT);
+
+    await currentWindow.setMinSize(minSize);
+
+    const currentSize = await currentWindow.innerSize();
+    const scaleFactor = await currentWindow.scaleFactor();
+    const currentLogicalWidth = currentSize.width / scaleFactor;
+    const currentLogicalHeight = currentSize.height / scaleFactor;
+    const nextWidth = Math.max(currentLogicalWidth, TRANSCODE_TARGET_WIDTH);
+    const nextHeight = Math.max(currentLogicalHeight, TRANSCODE_TARGET_HEIGHT);
+
+    if (nextWidth !== currentLogicalWidth || nextHeight !== currentLogicalHeight) {
+      await currentWindow.setSize(new useTauriWindowLogicalSize(nextWidth, nextHeight));
+    }
+  } catch (error) {
+    console.debug("optimize transcode window failed", error);
+  }
+}
+
+onMounted(async () => {
+  document.title = t("Transcode.Title");
+
+  try {
+    const currentWindow = useTauriWindowGetCurrentWindow();
+    await currentWindow.setTitle(t("Transcode.Title"));
+    await optimizeWindowForTranscode();
+  } catch {
+    // ignore when running in browser
+  }
+});
+
+onBeforeUnmount(async () => {
+  try {
+    await useTauriWindowGetCurrentWindow().setMinSize(null);
+  } catch {
+    // ignore when running in browser
+  }
+});
 </script>
 
 <template>
-  <div class="h-full overflow-auto p-4">
-    <div class="flex h-full flex-col gap-4">
-      <UCard class="flex-1 min-h-0 flex flex-col" :ui="{ body: 'flex-1 min-h-0 overflow-hidden flex flex-col' }">
-        <template #header>
-          <div class="flex flex-col gap-3">
-            <div class="flex items-center gap-3">
-              <UIcon name="lucide:repeat-2" class="text-primary h-5 w-5 shrink-0" />
-              <p class="text-base font-medium flex-1 min-w-0">
-                {{ t("Transcode.Title") }}
-              </p>
+  <div class="transcode-page h-screen overflow-hidden">
+    <div class="mx-auto flex h-full w-full max-w-[1500px] flex-col px-6 py-5 lg:px-8">
+      <header data-tauri-drag-region class="mb-2 h-8">
+        <div data-tauri-drag-region />
+      </header>
 
-              <UTooltip :text="t('Transcode.Settings')">
-                <UButton
-                  icon="i-lucide-settings"
-                  color="neutral"
-                  variant="ghost"
-                  size="sm"
-                  @click="openSettings"
-                />
-              </UTooltip>
-
-              <UButton v-if="isTranscoding" icon="i-lucide-loader" color="primary" variant="solid" size="sm" disabled>
-                {{ t("Transcode.Running") }}
-              </UButton>
-              <UButton
-                v-else
-                icon="i-lucide-play"
-                color="primary"
-                variant="solid"
-                size="sm"
-                :disabled="!canStart"
-                @click="handleStartTranscode"
-              >
-                {{ t("Transcode.Start") }}
-              </UButton>
-            </div>
-
-            <p class="text-sm text-gray-500 dark:text-gray-400">
-              {{ t("Transcode.Description") }}
+      <section
+        class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border-2 border-(--ui-border) bg-(--ui-bg)"
+      >
+        <div class="flex flex-col gap-3 border-b border-(--ui-border) px-5 py-4">
+          <div class="flex items-center gap-3">
+            <UIcon name="lucide:repeat-2" class="text-primary h-5 w-5 shrink-0" />
+            <p class="text-base font-medium flex-1 min-w-0">
+              {{ t("Transcode.Title") }}
             </p>
 
-            <div v-if="hasActiveTasks || hasTasks" class="flex flex-wrap items-center gap-2">
-              <UBadge v-if="hasActiveTasks" color="primary" variant="soft">
-                {{ t("Transcode.TotalProgress", { progress: totalProgress }) }}
-              </UBadge>
+            <UTooltip :text="t('Transcode.Settings')">
+              <UButton
+                icon="i-lucide-settings"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="openSettings"
+              />
+            </UTooltip>
 
-              <UBadge v-if="processingCount > 0" color="primary" variant="soft">
-                {{ t("Transcode.InProgress", { processing: processingCount, total: taskItems.length }) }}
-              </UBadge>
-
-              <UBadge v-else-if="completedCount > 0" :color="failedCount > 0 ? 'error' : 'success'" variant="soft">
-                {{ t("Transcode.CompletedCount", { completed: completedCount, total: taskItems.length }) }}
-              </UBadge>
-
-              <UBadge v-if="queuedCount > 0" color="warning" variant="soft">
-                {{ t("Transcode.QueuedCount", { count: queuedCount }) }}
-              </UBadge>
-
-              <UBadge v-if="successCount > 0" color="success" variant="soft">
-                {{ t("Transcode.SuccessCount", { count: successCount }) }}
-              </UBadge>
-
-              <UBadge v-if="failedCount > 0" color="error" variant="soft">
-                {{ t("Transcode.FailedCount", { count: failedCount }) }}
-              </UBadge>
-
-              <UBadge v-if="!hasActiveTasks && hasTasks" color="neutral" variant="soft">
-                {{ t("Transcode.NotStarted") }}
-              </UBadge>
-            </div>
+            <UButton v-if="isTranscoding" icon="i-lucide-loader" color="primary" variant="solid" size="sm" disabled>
+              {{ t("Transcode.Running") }}
+            </UButton>
+            <UButton
+              v-else
+              icon="i-lucide-play"
+              color="primary"
+              variant="solid"
+              size="sm"
+              :disabled="!canStart"
+              @click="handleStartTranscode"
+            >
+              {{ t("Transcode.Start") }}
+            </UButton>
           </div>
-        </template>
 
-        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            {{ t("Transcode.Description") }}
+          </p>
+
+          <div v-if="hasActiveTasks || hasTasks" class="flex flex-wrap items-center gap-2">
+            <UBadge v-if="hasActiveTasks" color="primary" variant="soft">
+              {{ t("Transcode.TotalProgress", { progress: totalProgress }) }}
+            </UBadge>
+
+            <UBadge v-if="processingCount > 0" color="primary" variant="soft">
+              {{ t("Transcode.InProgress", { processing: processingCount, total: taskItems.length }) }}
+            </UBadge>
+
+            <UBadge v-else-if="completedCount > 0" :color="failedCount > 0 ? 'error' : 'success'" variant="soft">
+              {{ t("Transcode.CompletedCount", { completed: completedCount, total: taskItems.length }) }}
+            </UBadge>
+
+            <UBadge v-if="queuedCount > 0" color="warning" variant="soft">
+              {{ t("Transcode.QueuedCount", { count: queuedCount }) }}
+            </UBadge>
+
+            <UBadge v-if="successCount > 0" color="success" variant="soft">
+              {{ t("Transcode.SuccessCount", { count: successCount }) }}
+            </UBadge>
+
+            <UBadge v-if="failedCount > 0" color="error" variant="soft">
+              {{ t("Transcode.FailedCount", { count: failedCount }) }}
+            </UBadge>
+
+            <UBadge v-if="!hasActiveTasks && hasTasks" color="neutral" variant="soft">
+              {{ t("Transcode.NotStarted") }}
+            </UBadge>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between px-5 py-3">
           <UButton icon="i-lucide-plus" color="neutral" variant="ghost" size="xs" @click="pickArchivesSmart">
             {{ t("Transcode.SelectArchives") }}
           </UButton>
@@ -322,7 +380,7 @@ watch(outputDir, () => {
           </UButton>
         </div>
 
-        <div v-if="taskItems.length" class="flex-1 min-h-0 space-y-2 overflow-y-auto pr-1">
+        <div v-if="taskItems.length" class="flex-1 min-h-0 space-y-2 overflow-y-auto px-5 pb-5">
           <div
             v-for="item in taskItems"
             :key="`${item.path}-${item.index}`"
@@ -433,11 +491,11 @@ watch(outputDir, () => {
 
         <div
           v-else
-          class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400"
+          class="mx-5 mb-5 flex flex-1 items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500 dark:border-white/10 dark:text-gray-400"
         >
           {{ t("Transcode.EmptyArchives") }}
         </div>
-      </UCard>
+      </section>
     </div>
 
     <UModal v-model:open="settingsOpen" :title="t('Transcode.Settings')" :ui="{ footer: 'justify-end' }">
@@ -532,3 +590,26 @@ watch(outputDir, () => {
     </UModal>
   </div>
 </template>
+
+<style scoped>
+.transcode-page {
+  color: var(--ui-text);
+  background:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--ui-color-primary-500) 14%, transparent) 0%,
+      transparent 30%
+    ),
+    radial-gradient(circle at right, color-mix(in srgb, var(--ui-bg-elevated) 65%, transparent) 0%, transparent 26%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--ui-bg) 90%, var(--ui-bg-elevated) 10%) 0%,
+      color-mix(in srgb, var(--ui-bg) 98%, black 2%) 100%
+    );
+}
+
+:global(.dark.transcode-window-body.platform-windows) {
+  border-color: #2c2c2c;
+  box-shadow: 0 0 0 1px #2c2c2c;
+}
+</style>
