@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { NavigationMenuItem } from "@nuxt/ui";
-import { getConfiguredAppName } from "~/composables/useAppName";
 
 import SidebarFlipIcon from "~/icons/SidebarFlipIcon.vue";
 import Profile from "./profile.vue";
@@ -13,7 +12,6 @@ const { isMacOS } = usePlatform();
 // const isMacOS = false;
 const { collapse, setCollapse } = useSettingManager();
 
-const appName = ref(getConfiguredAppName());
 const isLoading = ref(false);
 const sidebarSearch = ref("");
 
@@ -100,7 +98,6 @@ const debouncedSidebarSearch = useDebounceFn(emitSearch, 200);
       >
         <div v-if="!isMacOS && !collapse" class="flex items-center gap-2">
           <UAvatar size="sm" src="/logo.png" class="bg-transparent" :ui="{ root: 'bg-transparent' }" />
-          <span v-if="appName" class="text-sm">{{ appName }}</span>
         </div>
 
         <UButton
