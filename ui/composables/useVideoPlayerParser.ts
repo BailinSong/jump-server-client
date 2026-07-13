@@ -1,6 +1,6 @@
+import { gunzipSync } from "fflate";
 // @ts-expect-error library ships without useful ESM typings
 import untar from "js-untar";
-import { gunzipSync } from "fflate";
 
 export type VideoPlayerItemType = "mp4" | "cast" | "gua" | "part";
 
@@ -76,7 +76,7 @@ function stripArchiveExtension(fileName: string) {
 
 function isGzipBuffer(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer);
-  return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+  return bytes.length >= 2 && bytes[0] === 0x1F && bytes[1] === 0x8B;
 }
 
 function decodeCastBuffer(buffer: ArrayBuffer) {

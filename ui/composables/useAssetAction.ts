@@ -133,7 +133,7 @@ export const useAssetAction = () => {
    */
   const displayProtocol = (assetId: string, protocols: PermedProtocol[]) => {
     const saved = currentConnectionInfoMap.value[assetId];
-    return saved?.protocol || protocols?.[0]?.name || "-";
+    return saved?.protocol || sortPermedProtocols(protocols)?.[0]?.name || "-";
   };
 
   /**
@@ -537,7 +537,7 @@ export const useAssetAction = () => {
           useEventBus().emit("assetDetailUpdated", {
             assetId: payload.asset_id,
             permedAccounts,
-            permedProtocols: filteredPermedProtocols
+            permedProtocols: sortPermedProtocols(filteredPermedProtocols)
           });
         }
       });

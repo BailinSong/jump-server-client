@@ -170,7 +170,7 @@ function resolveProtocols(asset: AssetItem) {
     candidateProtocols.push(saved.protocol);
   }
 
-  return Array.from(new Set(candidateProtocols.filter((name) => typeof name === "string" && name.length > 0)));
+  return sortProtocolNames(Array.from(new Set(candidateProtocols.filter((name) => typeof name === "string" && name.length > 0))));
 };
 </script>
 

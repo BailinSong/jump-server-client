@@ -194,7 +194,7 @@ const actionItems = computed<ActionItem[]>(() => [
       }
 
       // 直接创建窗口
-      // eslint-disable-next-line no-new
+
       const isMac = isMacOS.value;
       new useTauriWebviewWindowWebviewWindow(label, {
         title: t("Common.ConnectionSettings"),

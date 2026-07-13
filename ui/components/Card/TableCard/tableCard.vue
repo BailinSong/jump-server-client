@@ -69,7 +69,7 @@ const resolveProtocols = (asset: AssetItem) => {
     candidates.push(saved.protocol);
   }
 
-  return Array.from(new Set(candidates.filter((name) => typeof name === "string" && name.length > 0)));
+  return sortProtocolNames(Array.from(new Set(candidates.filter((name) => typeof name === "string" && name.length > 0))));
 };
 
 const buildMenuItems = computed(() => {

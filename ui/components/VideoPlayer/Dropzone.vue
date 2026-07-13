@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const props = withDefaults(
   defineProps<{
-    compact?: boolean;
+    compact?: boolean
   }>(),
   {
     compact: false
@@ -9,7 +9,7 @@ const props = withDefaults(
 );
 
 const emit = defineEmits<{
-  "select-files": [File[]];
+  "select-files": [File[]]
 }>();
 
 function handleDrop(event: DragEvent) {

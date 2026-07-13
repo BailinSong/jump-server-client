@@ -161,6 +161,34 @@ func readJSON(path string, target interface{}) error {
 	return json.Unmarshal(data, target)
 }
 
+func sanitizeState(state *pluginState) bool {
+	if state == nil || state.Selections == nil {
+		return false
+	}
+
+	changed := false
+	if runtime.GOOS != "windows" {
+		for _, key := range []string{"terminal:ssh", "terminal:telnet"} {
+			if state.Selections[key] == "builtin.putty" {
+				delete(state.Selections, key)
+				changed = true
+			}
+		}
+	}
+
+	if state.Selections["filetransfer:sftp"] != "builtin.iterm-sftp" {
+		return changed
+	}
+
+	item, ok := state.Plugins["builtin.iterm-sftp"]
+	if ok && (item.Enabled || strings.TrimSpace(item.Path) != "") {
+		return changed
+	}
+
+	delete(state.Selections, "filetransfer:sftp")
+	return true
+}
+
 func launchToArgFormat(launch map[string]interface{}) (string, []config.AutoItCommand) {
 	launchType, _ := launch["type"].(string)
 	switch launchType {
@@ -183,7 +211,9 @@ func launchToArgFormat(launch map[string]interface{}) (string, []config.AutoItCo
 func resolvePath(pluginID string, defaults platformDefaults, connect platformConnect, state pluginState) (string, bool, bool) {
 	userPath := ""
 	enabled := true
+	hasUserPlugin := false
 	if item, ok := state.Plugins[pluginID]; ok {
+		hasUserPlugin = true
 		userPath = strings.TrimSpace(item.Path)
 		enabled = item.Enabled
 	}
@@ -195,7 +225,7 @@ func resolvePath(pluginID string, defaults platformDefaults, connect platformCon
 		path = connect.Executable.Default
 	}
 
-	isSet := (defaults.IsSet || userPath != "") && enabled
+	isSet := (defaults.IsSet || userPath != "" || (defaults.IsInternal && path != "" && hasUserPlugin)) && enabled
 	return path, isSet, defaults.IsInternal
 }
 
@@ -207,10 +237,23 @@ func buildMatchFirst(pluginID, category string, protocols []string, selections m
 			matched = append(matched, proto)
 		}
 	}
-	if len(matched) > 0 {
-		return matched
+
+	seen := map[string]bool{}
+	for _, proto := range matched {
+		seen[proto] = true
 	}
-	return fallback
+	for _, proto := range fallback {
+		if seen[proto] {
+			continue
+		}
+		key := category + ":" + proto
+		if selected := selections[key]; selected != "" && selected != pluginID {
+			continue
+		}
+		matched = append(matched, proto)
+		seen[proto] = true
+	}
+	return matched
 }
 
 func LoadAppConfig(configDir string) (*config.AppConfig, bool) {
@@ -252,6 +295,11 @@ func LoadAppConfig(configDir string) (*config.AppConfig, bool) {
 	}
 	if state.Plugins == nil {
 		state.Plugins = map[string]pluginStateItem{}
+	}
+	if sanitizeState(&state) {
+		if data, err := json.MarshalIndent(state, "", "  "); err == nil {
+			_ = os.WriteFile(statePath, data, 0644)
+		}
 	}
 
 	osName := osKey()

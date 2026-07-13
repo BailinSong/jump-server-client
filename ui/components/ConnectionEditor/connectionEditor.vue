@@ -35,7 +35,7 @@ const modalTitle = computed(() => {
 const initDraft = (asset: AssetItem) => {
   const saved: ConnectionInfo | undefined = asset.savedConnection;
 
-  const protocols = asset.permedProtocols || ([] as PermedProtocol[]);
+  const protocols = sortPermedProtocols(asset.permedProtocols || ([] as PermedProtocol[]));
   const accounts = asset.permedAccounts || ([] as PermedAccount[]);
 
   // 协议默认：保存的协议 -> 第一个协议 -> 空
@@ -75,7 +75,7 @@ const initDraft = (asset: AssetItem) => {
  * @description 拼凑连接信息
  */
 const normalizeProtocols = () => {
-  return (currentAsset.value?.permedProtocols || [])
+  return sortPermedProtocols(currentAsset.value?.permedProtocols || [])
     .map((p) => (p?.name ? p.name.trim() : ""))
     .filter((name) => name.length > 0);
 };

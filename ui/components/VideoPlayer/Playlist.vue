@@ -161,7 +161,6 @@ function partLabel(item: VideoPlayerItem) {
 function groupHasActivePart(group: PlaylistGroup) {
   return group.items.some((item) => item.id === props.activeId);
 }
-
 </script>
 
 <template>

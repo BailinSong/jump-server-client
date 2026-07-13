@@ -248,15 +248,15 @@ RGB → BGR (逐像素 R/B 交换，DIB 字节序)
 
 ```typescript
 interface TranscodeProgress {
-  file: string;          // 文件名或 session ID
-  index: number;         // 当前文件在批次中的索引
-  total: number;         // 批次总文件数
-  progress: number;      // 0–100
-  message: string;       // 状态描述
-  success?: boolean;     // 完成时设置
-  output?: string;       // 输出文件路径
-  duration?: number;     // 转码耗时（秒）
-  metadata?: ReplayMetadata;  // 会话元数据（首次事件时发送）
+  file: string // 文件名或 session ID
+  index: number // 当前文件在批次中的索引
+  total: number // 批次总文件数
+  progress: number // 0–100
+  message: string // 状态描述
+  success?: boolean // 完成时设置
+  output?: string // 输出文件路径
+  duration?: number // 转码耗时（秒）
+  metadata?: ReplayMetadata // 会话元数据（首次事件时发送）
 }
 ```
 

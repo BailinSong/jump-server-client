@@ -200,7 +200,7 @@ onBeforeUnmount(async () => {
       multiple
       accept=".mp4,.gz,.tar,.json,.cast"
       @change="handleInputChange"
-    />
+    >
 
     <div class="mx-auto flex h-full w-full max-w-[1700px] flex-col px-6 py-5 lg:px-8">
       <header class="relative mb-2 h-8" @mousedown="handleWindowDrag">
@@ -279,7 +279,9 @@ onBeforeUnmount(async () => {
             v-else
             class="flex h-full min-h-0 flex-col rounded-xl border-2 border-(--ui-border) p-4"
           >
-            <p class="mb-3 text-[11px] uppercase tracking-[0.2em] text-(--ui-text-dimmed)">播放列表</p>
+            <p class="mb-3 text-[11px] uppercase tracking-[0.2em] text-(--ui-text-dimmed)">
+              播放列表
+            </p>
 
             <div
               class="flex min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-(--ui-border) p-3"
@@ -290,8 +292,12 @@ onBeforeUnmount(async () => {
                 >
                   <UIcon name="line-md:list-3" />
                 </div>
-                <p class="mt-4 text-sm font-medium text-(--ui-text-highlighted)">暂无播放片段</p>
-                <p class="mt-2 text-xs leading-5 text-(--ui-text-muted)">导入录像后，这里会显示可切换的片段列表。</p>
+                <p class="mt-4 text-sm font-medium text-(--ui-text-highlighted)">
+                  暂无播放片段
+                </p>
+                <p class="mt-2 text-xs leading-5 text-(--ui-text-muted)">
+                  导入录像后，这里会显示可切换的片段列表。
+                </p>
               </div>
             </div>
           </div>
