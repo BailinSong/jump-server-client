@@ -217,9 +217,9 @@ const onPathClick = () => {
               <UButton label="Select path" color="neutral" variant="outline" @click="selectExecutablePath()" />
             </template>
             <template v-else>
-              <div class="flex max-w-full items-center gap-2">
+              <div class="flex items-center gap-2">
                 <div
-                  class="inline-flex max-w-full items-center truncate rounded bg-gray-100/80 px-2 py-0.5 text-xs leading-tight text-gray-600 dark:bg-white/10 dark:text-gray-300"
+                  class="inline-flex items-center truncate rounded bg-gray-100/80 px-2 py-0.5 text-xs leading-tight text-gray-600 dark:bg-white/10 dark:text-gray-300"
                   :class="{ 'cursor-pointer hover:bg-gray-200/60 dark:hover:bg-white/15': isWindowsPathPickTarget }"
                   :title="props.item.path || '-'"
                   @click="onPathClick"
@@ -232,10 +232,12 @@ const onPathClick = () => {
                   size="xs"
                   color="neutral"
                   variant="ghost"
-                  icon="i-lucide-copy"
+                  square
                   :title="t('Setting.CopyPath')"
                   @click.stop="handleCopyPath"
-                />
+                >
+                  <UIcon name="lucide:copy" class="size-3.5" />
+                </UButton>
               </div>
             </template>
           </div>
