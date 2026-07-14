@@ -21,15 +21,15 @@ type indexFile struct {
 }
 
 type indexEntry struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Category string   `json:"category"`
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	Category  string   `json:"category"`
 	Platforms []string `json:"platforms"`
 }
 
 type pluginState struct {
-	Version    int                       `json:"version"`
-	Selections map[string]string         `json:"selections"`
+	Version    int                        `json:"version"`
+	Selections map[string]string          `json:"selections"`
 	Plugins    map[string]pluginStateItem `json:"plugins"`
 }
 
@@ -68,11 +68,11 @@ type defaultsFile struct {
 }
 
 type platformDefaults struct {
-	MatchFirst  []string `json:"match_first"`
-	IsDefault   bool     `json:"is_default"`
-	IsSet       bool     `json:"is_set"`
-	IsInternal  bool     `json:"is_internal"`
-	Path        string   `json:"path"`
+	MatchFirst []string `json:"match_first"`
+	IsDefault  bool     `json:"is_default"`
+	IsSet      bool     `json:"is_set"`
+	IsInternal bool     `json:"is_internal"`
+	Path       string   `json:"path"`
 }
 
 func osKey() string {
@@ -174,6 +174,11 @@ func sanitizeState(state *pluginState) bool {
 				changed = true
 			}
 		}
+	}
+
+	if runtime.GOOS == "linux" && state.Selections["remotedesktop:rdp"] == "builtin.mstsc" {
+		delete(state.Selections, "remotedesktop:rdp")
+		changed = true
 	}
 
 	if state.Selections["filetransfer:sftp"] != "builtin.iterm-sftp" {

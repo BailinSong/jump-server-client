@@ -30,6 +30,34 @@ func validateAppPath(appPath string) error {
 	return nil
 }
 
+func buildLinuxTerminalCommand(terminalPath, clientPath, commands string) *exec.Cmd {
+	terminalName := strings.ToLower(filepath.Base(strings.TrimSpace(terminalPath)))
+	if terminalName == "" {
+		return nil
+	}
+
+	switch terminalName {
+	case "gnome-terminal":
+		return exec.Command(terminalPath, "--", "bash", "-c",
+			fmt.Sprintf("%s %s; exec bash -i", clientPath, commands),
+		)
+	case "x-terminal-emulator":
+		return exec.Command(terminalPath, "-e", fmt.Sprintf("%s %s", clientPath, commands))
+	case "deepin-terminal":
+		return exec.Command(terminalPath, "--keep-open", "-C", fmt.Sprintf("%s %s", clientPath, commands))
+	case "konsole":
+		return exec.Command(terminalPath, "--noclose", "-e", "bash", "-c", fmt.Sprintf("%s %s", clientPath, commands))
+	case "xfce4-terminal":
+		return exec.Command(terminalPath, "--hold", "-e", fmt.Sprintf("%s %s", clientPath, commands))
+	case "lxterminal":
+		return exec.Command(terminalPath, "-e", fmt.Sprintf("%s %s", clientPath, commands))
+	case "xterm":
+		return exec.Command(terminalPath, "-hold", "-e", "bash", "-lc", fmt.Sprintf("%s %s", clientPath, commands))
+	default:
+		return nil
+	}
+}
+
 func awakenRDPCommand(filePath string, cfg *config.AppConfig) *exec.Cmd {
 	global.LOG.Debug(filePath)
 	var appItem *config.AppItem
@@ -125,32 +153,37 @@ func awakenSSHCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		currentPath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
 		clientPath := filepath.Join(currentPath, "client")
-		out, err := exec.Command("bash", "-c", "echo $XDG_CURRENT_DESKTOP").CombinedOutput()
-		if err != nil {
-			global.LOG.Error(fmt.Sprintf("Failed to detect desktop environment: %v", err))
-			return nil
+		if appItem.Path != "" {
+			cmd = buildLinuxTerminalCommand(appItem.Path, clientPath, commands)
 		}
+		if cmd == nil {
+			out, err := exec.Command("bash", "-c", "echo $XDG_CURRENT_DESKTOP").CombinedOutput()
+			if err != nil {
+				global.LOG.Error(fmt.Sprintf("Failed to detect desktop environment: %v", err))
+				return nil
+			}
 
-		currentDesktop := strings.ToLower(strings.TrimSpace(string(out)))
+			currentDesktop := strings.ToLower(strings.TrimSpace(string(out)))
 
-		switch currentDesktop {
-		case "gnome", "ubuntu:gnome", "ukui", "cinnamon", "x-cinnamon":
-			cmd = exec.Command("gnome-terminal", "--", "bash", "-c",
-				fmt.Sprintf("%s %s; exec bash -i", clientPath, commands),
-			)
-		case "unity":
-			cmd = exec.Command("x-terminal-emulator", "-e", fmt.Sprintf("%s %s", clientPath, commands))
-		case "deepin":
-			cmd = exec.Command("deepin-terminal", "--keep-open", "-C", fmt.Sprintf("%s %s", clientPath, commands))
-		case "kde":
-			cmd = exec.Command("konsole", "--noclose", "-e", "bash", "-c", fmt.Sprintf("%s %s", clientPath, commands))
-		case "xfce":
-			cmd = exec.Command("xfce4-terminal", "--hold", "-e", fmt.Sprintf("%s %s", clientPath, commands))
-		case "lxde":
-			cmd = exec.Command("lxterminal", "-e", fmt.Sprintf("%s %s", clientPath, commands))
-		default:
-			msg := fmt.Sprintf("Not yet supported %s desktop system", currentDesktop)
-			global.LOG.Info(msg)
+			switch currentDesktop {
+			case "gnome", "ubuntu:gnome", "ukui", "cinnamon", "x-cinnamon":
+				cmd = exec.Command("gnome-terminal", "--", "bash", "-c",
+					fmt.Sprintf("%s %s; exec bash -i", clientPath, commands),
+				)
+			case "unity":
+				cmd = exec.Command("x-terminal-emulator", "-e", fmt.Sprintf("%s %s", clientPath, commands))
+			case "deepin":
+				cmd = exec.Command("deepin-terminal", "--keep-open", "-C", fmt.Sprintf("%s %s", clientPath, commands))
+			case "kde":
+				cmd = exec.Command("konsole", "--noclose", "-e", "bash", "-c", fmt.Sprintf("%s %s", clientPath, commands))
+			case "xfce":
+				cmd = exec.Command("xfce4-terminal", "--hold", "-e", fmt.Sprintf("%s %s", clientPath, commands))
+			case "lxde":
+				cmd = exec.Command("lxterminal", "-e", fmt.Sprintf("%s %s", clientPath, commands))
+			default:
+				msg := fmt.Sprintf("Not yet supported %s desktop system", currentDesktop)
+				global.LOG.Info(msg)
+			}
 		}
 	} else {
 		if r.Protocol == "sqlserver" {

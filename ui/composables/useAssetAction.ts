@@ -1,6 +1,7 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { ConnectionBody, PermedAccount, PermedProtocol, TokenResponse } from "~/types";
 
+import { useConnectMethods } from "~/composables/useConnectMethods";
 import { useSettingManager } from "~/composables/useSettingManager";
 import { useUserInfoStore } from "~/store/modules/userInfo";
 
@@ -56,6 +57,7 @@ export const useAssetAction = () => {
   const toast = useToast();
   const userInfoStore = useUserInfoStore();
   const settingManager = useSettingManager();
+  const { getMethodsForProtocol, getDefaultMethodForProtocol } = useConnectMethods();
   // prettier-ignore
   const { currentSite, currentConnectionInfoMap, currentRdpClientOption } = storeToRefs(userInfoStore);
   const { charset, rdpResolution, backspaceAsCtrlH, keyboardLayout, rdpClientOption, rdpColorQuality, rdpSmartSize }
@@ -204,9 +206,6 @@ export const useAssetAction = () => {
       case "telnet":
         method = "ssh_client";
         break;
-      case "rdp":
-        method = "mstsc";
-        break;
       case "sftp":
         method = "sftp_client";
         break;
@@ -221,6 +220,27 @@ export const useAssetAction = () => {
     }
 
     return method;
+  };
+
+  const resolveConnectMethod = async (protocol: string, preferred?: string) => {
+    const preferredMethod = preferred?.trim() || "";
+
+    try {
+      const methods = await getMethodsForProtocol(protocol);
+
+      if (preferredMethod && methods.some((method) => method.value === preferredMethod)) {
+        return preferredMethod;
+      }
+
+      const defaultMethod = await getDefaultMethodForProtocol(protocol);
+      if (defaultMethod) {
+        return defaultMethod;
+      }
+    } catch (error) {
+      console.debug(`Failed to resolve connect method for ${protocol}:`, error);
+    }
+
+    return preferredMethod || dispatchConnectMethod(protocol);
   };
 
   const generateConnectOptions = (protocol: string) => {
@@ -258,7 +278,7 @@ export const useAssetAction = () => {
    * @param accounts
    * @param protocolOverride
    */
-  const handleAssetConnection = (
+  const handleAssetConnection = async (
     user: string,
     assetId: string,
     displayProtocol: string,
@@ -321,9 +341,11 @@ export const useAssetAction = () => {
     })();
 
     // 当前连接显式选择优先；仅在协议一致时复用已保存连接方法，避免跨协议复用错误的客户端
-    const connectMethod = ephemeral?.connectMethod?.trim()
+    const connectMethod = await resolveConnectMethod(
+      protocol,
+      ephemeral?.connectMethod?.trim()
       || (saved?.protocol === protocol ? saved?.connectMethod?.trim() : "")
-      || dispatchConnectMethod(protocol);
+    );
 
     userInfoStore.setConnectionInfoForAsset(assetId, {
       protocol,
