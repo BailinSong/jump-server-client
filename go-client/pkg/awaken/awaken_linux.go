@@ -148,17 +148,9 @@ func awakenRDPCommand(filePath string, cfg *config.AppConfig) *exec.Cmd {
 	if appItem == nil {
 		return nil
 	}
-	connectMap := map[string]string{
-		"name":     r.getName(),
-		"protocol": r.Protocol,
-		"username": r.getUserName(),
-		"value":    r.Value,
-		"host":     r.Host,
-		"port":     strconv.Itoa(r.Port),
-		"file":     filePath,
-	}
-
-	args := buildArgsFromTemplate(appItem.ArgFormat, connectMap)
+	args := splitArgsWithLiteral(appItem.ArgFormat, map[string]string{
+		"{file}": filePath,
+	})
 	cmd := exec.Command(appItem.Name, args...)
 	return cmd
 }
