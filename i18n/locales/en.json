@@ -3,6 +3,7 @@
     "Cancel": "Cancel",
     "About": "About",
     "Confirm": "Confirm",
+    "Copy": "Copy",
     "UnSigned": "UnSigned",
     "Version": "Version",
     "NoData": "No Data",
@@ -249,7 +250,9 @@
     "Disable": "Disable",
     "EnableFailed": "Unable to enable",
     "ExecutableNotFound": "Application not found. Please download and install it correctly.",
-    "DownloadApplication": "Download Application"
+    "DownloadApplication": "Download Application",
+    "CopyPath": "Copy path",
+    "CopyPathSuccess": "Path copied"
   },
   "ConnectError": {
     "ConnectFailed": "Connection failed",

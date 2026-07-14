@@ -5,6 +5,12 @@ export const useApplicationConfig = () => {
   const toast = useToast();
   const { setAppConfig, appConfig, hydrationPromise } = useSettingManager();
 
+  const withErrorDetail = (base: string, raw: string) => {
+    const detail = raw.trim();
+    if (!detail || detail === base) return base;
+    return `${base}\n${detail}`;
+  };
+
   const isValidAppConfig = (cfg: any): cfg is AppConfigType => {
     return (
       !!cfg
@@ -44,12 +50,13 @@ export const useApplicationConfig = () => {
     await getConfig();
   });
 
-  const selectClient = async (category: keyof AppConfigType, protocol: string, name: string) => {
+  const selectClient = async (category: keyof AppConfigType, protocol: string, name: string, enabled = true) => {
     try {
       const updated = await useTauriCoreInvoke("update_config_selection", {
         category,
         protocol,
-        name
+        name,
+        enabled
       });
 
       if (updated) {
@@ -58,7 +65,7 @@ export const useApplicationConfig = () => {
     } catch (error) {
       const message = String(error ?? "");
       const description = message.toLowerCase().includes("executable not found")
-        ? t("Setting.ExecutableNotFound")
+        ? withErrorDetail(t("Setting.ExecutableNotFound"), message)
         : message || t("Common.OperationFailed");
 
       toast.add({
