@@ -30,7 +30,7 @@ const userInfoStore = useUserInfoStore();
 
 const { t, locales, locale } = useI18n();
 const { loggedIn, currentSite, userMap, currentUser } = storeToRefs(userInfoStore);
-const { isMacOS } = usePlatform();
+const { isWindows } = usePlatform();
 
 const {
   setLang,
@@ -294,7 +294,7 @@ async function openToolWindow(
       return;
     }
 
-    const isMac = isMacOS.value;
+    const useNativeWindowFrame = !isWindows.value;
 
     // eslint-disable-next-line no-new
     new useTauriWebviewWindowWebviewWindow(label, {
@@ -307,8 +307,8 @@ async function openToolWindow(
       hiddenTitle: true,
       titleBarStyle: "overlay",
       trafficLightPosition: new LogicalPosition(10, 22),
-      decorations: isMac,
-      shadow: isMac
+      decorations: useNativeWindowFrame,
+      shadow: useNativeWindowFrame
     });
   } catch {
     await navigateTo(url);

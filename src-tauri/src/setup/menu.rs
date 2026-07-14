@@ -161,7 +161,7 @@ pub fn handle_menu_event(app_handle: &tauri::AppHandle, event: &MenuEvent) {
 }
 
 /// 打开/聚焦设置窗口
-pub fn open_settings_window(app: &tauri::AppHandle) {
+pub fn open_settings_window<R: Runtime>(app: &tauri::AppHandle<R>) {
     let label = "secondary";
 
     if let Some(existing) = app.get_webview_window(label) {
@@ -211,7 +211,7 @@ pub fn open_settings_window(app: &tauri::AppHandle) {
 }
 
 /// 打开 About 弹窗
-fn open_about_window(app: &tauri::AppHandle) {
+pub fn open_about_window<R: Runtime>(app: &tauri::AppHandle<R>) {
     let label = "about-window";
     if let Some(win) = app.get_webview_window(label) {
         let _ = win.unminimize();

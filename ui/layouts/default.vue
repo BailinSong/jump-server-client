@@ -27,7 +27,7 @@ onMounted(() => {
   <UCard
     variant="outline"
     :ui="cardUi"
-    style="background-color: transparent"
+    :style="{ backgroundColor: isWindows ? 'transparent' : 'var(--ui-bg)' }"
   >
     <div class="flex gap-0 w-full h-screen border-none">
       <SideBar />

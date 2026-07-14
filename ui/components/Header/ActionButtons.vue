@@ -5,7 +5,7 @@ import type { ActionItem } from "~/types/index";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 
 const { t, locale } = useI18n();
-const { isMacOS } = usePlatform();
+const { isWindows } = usePlatform();
 const { layouts, sort, setSort, setLayouts } = useSettingManager();
 
 const localePath = useLocalePath();
@@ -195,7 +195,7 @@ const actionItems = computed<ActionItem[]>(() => [
 
       // 直接创建窗口
 
-      const isMac = isMacOS.value;
+      const useNativeWindowFrame = !isWindows.value;
       new useTauriWebviewWindowWebviewWindow(label, {
         title: t("Common.ConnectionSettings"),
         url: localePath({ path: "/setting" }),
@@ -206,8 +206,8 @@ const actionItems = computed<ActionItem[]>(() => [
         hiddenTitle: true,
         titleBarStyle: "overlay",
         trafficLightPosition: new LogicalPosition(10, 22),
-        decorations: isMac,
-        shadow: isMac
+        decorations: useNativeWindowFrame,
+        shadow: useNativeWindowFrame
       });
     }
   }
@@ -242,7 +242,7 @@ const actionItems = computed<ActionItem[]>(() => [
     </div>
 
     <!-- 窗口控制按钮 -->
-    <div v-if="!isMacOS" class="flex items-center">
+    <div v-if="isWindows" class="flex items-center">
       <template v-for="button of windowControlButtons" :key="button.key">
         <UButton
           size="sm"

@@ -4,7 +4,7 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 const localePath = useLocalePath();
 
 const { t } = useI18n();
-const { isMacOS } = usePlatform();
+const { isWindows } = usePlatform();
 const { theme } = useSettingManager();
 const { initialTheme, listenOSThemeChange } = useThemeAdapter();
 
@@ -44,7 +44,7 @@ const windowControlButtons = computed(() => {
 });
 
 const windowControlRailClass = computed(() => {
-  return isMacOS.value ? "w-0" : "w-36";
+  return isWindows.value ? "w-36" : "w-0";
 });
 
 const getWindowControlButtonClass = (buttonKey: string) => {
@@ -131,7 +131,7 @@ onMounted(() => {
               :class="windowControlRailClass"
               data-tauri-drag-region="false"
             >
-              <template v-if="!isMacOS">
+              <template v-if="isWindows">
                 <template v-for="button of windowControlButtons" :key="button.key">
                   <UButton
                     :icon="button.iconName"
