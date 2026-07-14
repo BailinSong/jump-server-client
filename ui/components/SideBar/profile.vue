@@ -30,7 +30,7 @@ const userInfoStore = useUserInfoStore();
 
 const { t, locales, locale } = useI18n();
 const { loggedIn, currentSite, userMap, currentUser } = storeToRefs(userInfoStore);
-const { isWindows } = usePlatform();
+const { isMacOS } = usePlatform();
 
 const {
   setLang,
@@ -294,7 +294,7 @@ async function openToolWindow(
       return;
     }
 
-    const useNativeWindowFrame = !isWindows.value;
+    const useNativeWindowFrame = isMacOS.value;
 
     // eslint-disable-next-line no-new
     new useTauriWebviewWindowWebviewWindow(label, {

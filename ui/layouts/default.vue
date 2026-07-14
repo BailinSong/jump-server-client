@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 const { initialTheme, listenOSThemeChange } = useThemeAdapter();
-const { isWindows } = usePlatform();
+const { isLinux, isWindows } = usePlatform();
 
 const cardUi = computed(() => {
   const base = ["rounded-none", "overflow-visible"];
@@ -29,7 +29,8 @@ onMounted(() => {
     :ui="cardUi"
     :style="{ backgroundColor: isWindows ? 'transparent' : 'var(--ui-bg)' }"
   >
-    <div class="flex gap-0 w-full h-screen border-none">
+    <div class="relative flex gap-0 w-full h-screen border-none">
+      <WindowResizeFrame :enabled="isLinux" />
       <SideBar />
 
       <Main class="flex-1 min-w-0">

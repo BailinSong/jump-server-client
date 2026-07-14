@@ -5,7 +5,7 @@ import type { ActionItem } from "~/types/index";
 import { LogicalPosition } from "@tauri-apps/api/dpi";
 
 const { t, locale } = useI18n();
-const { isWindows } = usePlatform();
+const { isLinux, isMacOS } = usePlatform();
 const { layouts, sort, setSort, setLayouts } = useSettingManager();
 
 const localePath = useLocalePath();
@@ -16,6 +16,8 @@ const commonButtonProps = {
   variant: "ghost" as const,
   color: "neutral" as const
 };
+
+const showCustomWindowControls = computed(() => !isMacOS.value);
 
 // 窗口控制按钮配置
 const windowControlButtons = computed(() => {
@@ -50,15 +52,20 @@ const windowControlButtons = computed(() => {
 
 // 获取窗口控制按钮的样式类
 const getWindowControlButtonClass = (buttonKey: string) => {
-  const baseClass = "rounded-none w-12 h-13 p-1 flex items-center justify-center";
+  const isLinuxStyle = isLinux.value;
+  const baseClass = isLinuxStyle
+    ? "h-9 w-9 rounded-full p-1 flex items-center justify-center transition-colors"
+    : "rounded-none w-12 h-13 p-1 flex items-center justify-center";
 
   switch (buttonKey) {
     case "minimize":
-      return `${baseClass} `;
+      return isLinuxStyle ? `${baseClass} hover:bg-black/6 dark:hover:bg-white/10` : `${baseClass} `;
     case "maximize":
-      return `${baseClass} `;
+      return isLinuxStyle ? `${baseClass} hover:bg-black/6 dark:hover:bg-white/10` : `${baseClass} `;
     case "close":
-      return `${baseClass} hover:bg-red-500 hover:text-white active:bg-red-600`;
+      return isLinuxStyle
+        ? `${baseClass} hover:bg-red-500/12 hover:text-red-600 dark:hover:bg-red-500/18 dark:hover:text-red-300`
+        : `${baseClass} hover:bg-red-500 hover:text-white active:bg-red-600`;
     default:
       return baseClass;
   }
@@ -195,7 +202,7 @@ const actionItems = computed<ActionItem[]>(() => [
 
       // 直接创建窗口
 
-      const useNativeWindowFrame = !isWindows.value;
+      const useNativeWindowFrame = isMacOS.value;
       new useTauriWebviewWindowWebviewWindow(label, {
         title: t("Common.ConnectionSettings"),
         url: localePath({ path: "/setting" }),
@@ -242,7 +249,7 @@ const actionItems = computed<ActionItem[]>(() => [
     </div>
 
     <!-- 窗口控制按钮 -->
-    <div v-if="isWindows" class="flex items-center">
+    <div v-if="showCustomWindowControls" class="flex items-center" :class="isLinux ? 'gap-1.5' : ''">
       <template v-for="button of windowControlButtons" :key="button.key">
         <UButton
           size="sm"

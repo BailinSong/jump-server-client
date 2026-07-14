@@ -4,7 +4,7 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 const localePath = useLocalePath();
 
 const { t } = useI18n();
-const { isWindows } = usePlatform();
+const { isLinux, isMacOS, isWindows } = usePlatform();
 const { theme } = useSettingManager();
 const { initialTheme, listenOSThemeChange } = useThemeAdapter();
 
@@ -13,6 +13,8 @@ const commonButtonProps = {
   variant: "ghost" as const,
   color: "neutral" as const
 };
+
+const showCustomWindowControls = computed(() => !isMacOS.value);
 
 const windowControlButtons = computed(() => {
   return [
@@ -44,19 +46,26 @@ const windowControlButtons = computed(() => {
 });
 
 const windowControlRailClass = computed(() => {
-  return isWindows.value ? "w-36" : "w-0";
+  if (isWindows.value) return "w-36";
+  if (isLinux.value) return "w-32";
+  return "w-0";
 });
 
 const getWindowControlButtonClass = (buttonKey: string) => {
-  const baseClass = "rounded-none w-12 h-13 p-1 flex items-center justify-center";
+  const isLinuxStyle = isLinux.value;
+  const baseClass = isLinuxStyle
+    ? "h-9 w-9 rounded-full p-1 flex items-center justify-center transition-colors"
+    : "rounded-none w-12 h-13 p-1 flex items-center justify-center";
 
   switch (buttonKey) {
     case "minimize":
-      return `${baseClass} `;
+      return isLinuxStyle ? `${baseClass} hover:bg-black/6 dark:hover:bg-white/10` : `${baseClass} `;
     case "maximize":
-      return `${baseClass} `;
+      return isLinuxStyle ? `${baseClass} hover:bg-black/6 dark:hover:bg-white/10` : `${baseClass} `;
     case "close":
-      return `${baseClass} hover:bg-red-500 hover:text-white active:bg-red-600`;
+      return isLinuxStyle
+        ? `${baseClass} hover:bg-red-500/12 hover:text-red-600 dark:hover:bg-red-500/18 dark:hover:text-red-300`
+        : `${baseClass} hover:bg-red-500 hover:text-white active:bg-red-600`;
     default:
       return baseClass;
   }
@@ -95,7 +104,7 @@ onMounted(() => {
 
 <template>
   <UPage
-    class="h-screen flex flex-col"
+    class="relative h-screen flex flex-col"
     :ui="{
       center: 'flex flex-col h-full min-h-0'
     }"
@@ -103,6 +112,7 @@ onMounted(() => {
       backgroundColor: theme === 'dark' ? '#2C2C2C' : '#F5F5F5'
     }"
   >
+    <WindowResizeFrame :enabled="isLinux" />
     <UPageHeader
       :ui="{
         root: 'p-0'
@@ -131,7 +141,7 @@ onMounted(() => {
               :class="windowControlRailClass"
               data-tauri-drag-region="false"
             >
-              <template v-if="isWindows">
+              <template v-if="showCustomWindowControls">
                 <template v-for="button of windowControlButtons" :key="button.key">
                   <UButton
                     :icon="button.iconName"
