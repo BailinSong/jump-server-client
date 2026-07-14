@@ -73,6 +73,38 @@ func splitArgsWithLiteral(template string, literals map[string]string) []string 
 	return args
 }
 
+func buildArgsFromTemplate(template string, values map[string]string) []string {
+	if strings.TrimSpace(template) == "" {
+		return nil
+	}
+
+	replaced := template
+	tokenValues := map[string]string{}
+	index := 0
+
+	for placeholder, value := range values {
+		token := fmt.Sprintf("__JMS_LITERAL_%d__", index)
+		replaced = strings.ReplaceAll(replaced, "{"+placeholder+"}", token)
+		tokenValues[token] = value
+		index++
+	}
+
+	fields := strings.Fields(replaced)
+	args := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if value, ok := tokenValues[field]; ok {
+			args = append(args, value)
+			continue
+		}
+		for token, value := range tokenValues {
+			field = strings.ReplaceAll(field, token, value)
+		}
+		args = append(args, field)
+	}
+
+	return args
+}
+
 func buildLinuxTerminalCommand(terminalPath, clientPath, commands string) *exec.Cmd {
 	terminalName := strings.ToLower(filepath.Base(strings.TrimSpace(terminalPath)))
 	if terminalName == "" {
@@ -116,9 +148,17 @@ func awakenRDPCommand(filePath string, cfg *config.AppConfig) *exec.Cmd {
 	if appItem == nil {
 		return nil
 	}
-	args := splitArgsWithLiteral(appItem.ArgFormat, map[string]string{
-		"{file}": filePath,
-	})
+	connectMap := map[string]string{
+		"name":     r.getName(),
+		"protocol": r.Protocol,
+		"username": r.getUserName(),
+		"value":    r.Value,
+		"host":     r.Host,
+		"port":     strconv.Itoa(r.Port),
+		"file":     filePath,
+	}
+
+	args := buildArgsFromTemplate(appItem.ArgFormat, connectMap)
 	cmd := exec.Command(appItem.Name, args...)
 	return cmd
 }

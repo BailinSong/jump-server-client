@@ -6,7 +6,7 @@ const cardUi = computed(() => {
   const base = ["rounded-none", "overflow-visible"];
 
   if (isWindows.value) {
-    base.push("border-0", "ring-0", "shadow-none", "bg-transparent");
+    base.push("border-0", "ring-0", "shadow-none");
   }
 
   return {
@@ -27,7 +27,7 @@ onMounted(() => {
   <UCard
     variant="outline"
     :ui="cardUi"
-    :style="{ backgroundColor: isWindows ? 'transparent' : 'var(--ui-bg)' }"
+    :style="{ backgroundColor: 'var(--ui-bg)' }"
   >
     <div class="relative flex gap-0 w-full h-screen border-none">
       <WindowResizeFrame :enabled="isLinux" />

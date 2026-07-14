@@ -11,7 +11,7 @@ const LOCALE_PREFIX_RE = /^\/[a-z]{2}(?:-[A-Z]{2})?(?=\/|$)/;
 
 const route = useRoute();
 
-const { isMacOS } = usePlatform();
+const { isLinux, isMacOS, isWindows } = usePlatform();
 const { locale, setLocale } = useI18n();
 const { userTheme, applyThemePreference, applySystemThemePreference } = useThemeAdapter();
 
@@ -27,18 +27,25 @@ const unlistenFont = ref<UnlistenFn | null>(null);
 const backgroundColor = computed(() => {
   const isDark = userTheme.value === "dark";
 
-  // 只在 macOS 下设置透明度
   if (isMacOS.value) {
     return isDark ? "rgba(30, 30, 30, 0.8)" : "rgba(240, 240, 240, 0.4)";
-  } else {
-    return isDark ? "rgba(30, 30, 30, 0.8)" : "rgba(240, 240, 240, 0.83)";
   }
+
+  if (isWindows.value) {
+    return isDark ? "#1e1e1e" : "#f4f4f5";
+  }
+
+  if (isLinux.value) {
+    return isDark ? "#1e1e1e" : "#f0f0f0";
+  }
+
+  return isDark ? "#1e1e1e" : "#f4f4f5";
 });
 
 const pageKey = computed(() => route.path.replace(LOCALE_PREFIX_RE, ""));
 
 const platformClass = computed(() => {
-  const platformKey = isMacOS.value ? "darwin" : "windows";
+  const platformKey = isMacOS.value ? "darwin" : isLinux.value ? "linux" : isWindows.value ? "windows" : "unknown";
   return `platform-${platformKey}`;
 });
 

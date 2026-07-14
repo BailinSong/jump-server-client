@@ -129,13 +129,7 @@ where
         true,
         None::<&str>,
     )?;
-    let quit_i = MenuItem::with_id(
-        app,
-        "quit",
-        labels.quit_label.as_str(),
-        true,
-        None::<&str>,
-    )?;
+    let quit_i = MenuItem::with_id(app, "quit", labels.quit_label.as_str(), true, None::<&str>)?;
 
     Menu::with_items(
         app,

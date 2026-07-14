@@ -176,9 +176,12 @@ func sanitizeState(state *pluginState) bool {
 		}
 	}
 
-	if runtime.GOOS == "linux" && state.Selections["remotedesktop:rdp"] == "builtin.mstsc" {
-		delete(state.Selections, "remotedesktop:rdp")
-		changed = true
+	if runtime.GOOS == "linux" {
+		switch state.Selections["remotedesktop:rdp"] {
+		case "builtin.mstsc", "builtin.remmina":
+			state.Selections["remotedesktop:rdp"] = "builtin.xfreerdp"
+			changed = true
+		}
 	}
 
 	if state.Selections["filetransfer:sftp"] != "builtin.iterm-sftp" {

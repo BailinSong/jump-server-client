@@ -19,24 +19,51 @@ impl PluginService {
         }
     }
 
-    fn resolve_builtin_dir(app: &AppHandle) -> Option<PathBuf> {
-        let resource = app
-            .path()
-            .resolve(
-                "resources/plugins/builtin",
-                tauri::path::BaseDirectory::Resource,
-            )
-            .ok()
-            .filter(|p| p.join("index.json").is_file())
-            .or_else(|| {
-                app.path()
-                    .resolve("plugins/builtin", tauri::path::BaseDirectory::Resource)
-                    .ok()
-                    .filter(|p| p.join("index.json").is_file())
-            });
+    fn resolve_resource_dir(app: &AppHandle, candidates: &[&str], marker: &str) -> Option<PathBuf> {
+        for candidate in candidates {
+            let Ok(path) = app
+                .path()
+                .resolve(candidate, tauri::path::BaseDirectory::Resource)
+            else {
+                continue;
+            };
 
-        if resource.is_some() {
-            return resource;
+            if path.join(marker).is_file() {
+                log::info!("Resolved resource dir '{}' to {:?}", candidate, path);
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    fn resolve_resource_file(app: &AppHandle, candidates: &[&str]) -> Option<PathBuf> {
+        for candidate in candidates {
+            let Ok(path) = app
+                .path()
+                .resolve(candidate, tauri::path::BaseDirectory::Resource)
+            else {
+                continue;
+            };
+
+            if path.is_file() {
+                log::info!("Resolved resource file '{}' to {:?}", candidate, path);
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    fn resolve_builtin_dir(app: &AppHandle) -> Option<PathBuf> {
+        let resource = Self::resolve_resource_dir(
+            app,
+            &["resources/plugins/builtin", "plugins/builtin", "builtin"],
+            "index.json",
+        );
+
+        if let Some(path) = resource {
+            return Some(path);
         }
 
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -45,32 +72,29 @@ impl PluginService {
             cwd.join("../plugins/builtin"),
             cwd.join("../../plugins/builtin"),
         ];
-        candidates
+        let resolved = candidates
             .into_iter()
-            .find(|p| p.join("index.json").is_file())
+            .find(|p| p.join("index.json").is_file());
+
+        if let Some(path) = resolved.as_ref() {
+            log::info!("Resolved builtin plugins from cwd fallback: {:?}", path);
+        }
+
+        resolved
     }
 
     fn resolve_defaults_path(app: &AppHandle) -> Option<PathBuf> {
-        let resource = app
-            .path()
-            .resolve(
+        let resource = Self::resolve_resource_file(
+            app,
+            &[
                 "resources/plugins/plugins-state.defaults.json",
-                tauri::path::BaseDirectory::Resource,
-            )
-            .ok()
-            .filter(|p| p.is_file())
-            .or_else(|| {
-                app.path()
-                    .resolve(
-                        "plugins/plugins-state.defaults.json",
-                        tauri::path::BaseDirectory::Resource,
-                    )
-                    .ok()
-                    .filter(|p| p.is_file())
-            });
+                "plugins/plugins-state.defaults.json",
+                "plugins-state.defaults.json",
+            ],
+        );
 
-        if resource.is_some() {
-            return resource;
+        if let Some(path) = resource {
+            return Some(path);
         }
 
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
@@ -78,7 +102,13 @@ impl PluginService {
             cwd.join("plugins/plugins-state.defaults.json"),
             cwd.join("../plugins/plugins-state.defaults.json"),
         ];
-        candidates.into_iter().find(|p| p.is_file())
+        let resolved = candidates.into_iter().find(|p| p.is_file());
+
+        if let Some(path) = resolved.as_ref() {
+            log::info!("Resolved plugin defaults from cwd fallback: {:?}", path);
+        }
+
+        resolved
     }
 
     fn read_json(path: &Path) -> Result<Value, String> {
@@ -95,12 +125,33 @@ impl PluginService {
 
         let mut changed = false;
         if Self::os_key() != "windows" {
-            if let Some(selections) = state_obj.get_mut("selections").and_then(|v| v.as_object_mut()) {
+            if let Some(selections) = state_obj
+                .get_mut("selections")
+                .and_then(|v| v.as_object_mut())
+            {
                 for key in ["terminal:ssh", "terminal:telnet"] {
                     if selections.get(key).and_then(|v| v.as_str()) == Some("builtin.putty") {
                         selections.remove(key);
                         changed = true;
                     }
+                }
+            }
+        }
+
+        if Self::os_key() == "linux" {
+            if let Some(selections) = state_obj
+                .get_mut("selections")
+                .and_then(|v| v.as_object_mut())
+            {
+                match selections.get("remotedesktop:rdp").and_then(|v| v.as_str()) {
+                    Some("builtin.mstsc") | Some("builtin.remmina") => {
+                        selections.insert(
+                            "remotedesktop:rdp".to_string(),
+                            Value::String("builtin.xfreerdp".to_string()),
+                        );
+                        changed = true;
+                    }
+                    _ => {}
                 }
             }
         }
@@ -120,7 +171,9 @@ impl PluginService {
             .and_then(|v| v.get("builtin.iterm-sftp"))
             .and_then(|v| v.as_object())
             .map(|obj| {
-                obj.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false)
+                obj.get("enabled")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
                     || obj
                         .get("path")
                         .and_then(|v| v.as_str())
@@ -133,7 +186,10 @@ impl PluginService {
             return changed;
         }
 
-        if let Some(selections) = state_obj.get_mut("selections").and_then(|v| v.as_object_mut()) {
+        if let Some(selections) = state_obj
+            .get_mut("selections")
+            .and_then(|v| v.as_object_mut())
+        {
             if selections.remove("filetransfer:sftp").is_some() {
                 changed = true;
             }
