@@ -1,6 +1,7 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { ConnectionBody, PermedAccount, PermedProtocol, TokenResponse } from "~/types";
 
+import { useConnectMethods } from "~/composables/useConnectMethods";
 import { useSettingManager } from "~/composables/useSettingManager";
 import { useUserInfoStore } from "~/store/modules/userInfo";
 
@@ -56,6 +57,7 @@ export const useAssetAction = () => {
   const toast = useToast();
   const userInfoStore = useUserInfoStore();
   const settingManager = useSettingManager();
+  const { getMethodsForProtocol, getDefaultMethodForProtocol } = useConnectMethods();
   // prettier-ignore
   const { currentSite, currentConnectionInfoMap, currentRdpClientOption } = storeToRefs(userInfoStore);
   const { charset, rdpResolution, backspaceAsCtrlH, keyboardLayout, rdpClientOption, rdpColorQuality, rdpSmartSize }
@@ -204,9 +206,6 @@ export const useAssetAction = () => {
       case "telnet":
         method = "ssh_client";
         break;
-      case "rdp":
-        method = "mstsc";
-        break;
       case "sftp":
         method = "sftp_client";
         break;
@@ -221,6 +220,27 @@ export const useAssetAction = () => {
     }
 
     return method;
+  };
+
+  const resolveConnectMethod = async (protocol: string, preferred?: string) => {
+    const preferredMethod = preferred?.trim() || "";
+
+    try {
+      const methods = await getMethodsForProtocol(protocol);
+
+      if (preferredMethod && methods.some((method) => method.value === preferredMethod)) {
+        return preferredMethod;
+      }
+
+      const defaultMethod = await getDefaultMethodForProtocol(protocol);
+      if (defaultMethod) {
+        return defaultMethod;
+      }
+    } catch (error) {
+      console.debug(`Failed to resolve connect method for ${protocol}:`, error);
+    }
+
+    return preferredMethod || dispatchConnectMethod(protocol);
   };
 
   const generateConnectOptions = (protocol: string) => {
@@ -238,12 +258,13 @@ export const useAssetAction = () => {
       token_reusable: false,
       disableautohash: false
     };
-    const specificOptions = protocol === "http"
-      ? {
-        appletConnectMethod: "client",
-        reusable: false
-      }
-      : {};
+    const specificOptions
+      = protocol === "http"
+        ? {
+          appletConnectMethod: "client",
+          reusable: false
+        }
+        : {};
     return {
       ...options,
       ...specificOptions
@@ -258,7 +279,7 @@ export const useAssetAction = () => {
    * @param accounts
    * @param protocolOverride
    */
-  const handleAssetConnection = (
+  const handleAssetConnection = async (
     user: string,
     assetId: string,
     displayProtocol: string,
@@ -321,14 +342,15 @@ export const useAssetAction = () => {
     })();
 
     // 当前连接显式选择优先；仅在协议一致时复用已保存连接方法，避免跨协议复用错误的客户端
-    const connectMethod = ephemeral?.connectMethod?.trim()
-      || (saved?.protocol === protocol ? saved?.connectMethod?.trim() : "")
-      || dispatchConnectMethod(protocol);
+    const connectMethod = await resolveConnectMethod(
+      protocol,
+      ephemeral?.connectMethod?.trim() || (saved?.protocol === protocol ? saved?.connectMethod?.trim() : "")
+    );
 
     userInfoStore.setConnectionInfoForAsset(assetId, {
       protocol,
       username: selected || user,
-      accountId: effectiveMode === "hosted" ? (matchedAccount?.id || saved?.accountId) : undefined,
+      accountId: effectiveMode === "hosted" ? matchedAccount?.id || saved?.accountId : undefined,
       accountMode: effectiveMode,
       connectMethod
     });
@@ -608,27 +630,33 @@ export const useAssetAction = () => {
         const payload = event.payload as eventPayload;
         const raw = payload.error || "";
         const lower = raw.toLowerCase();
+        const withDetail = (base: string) => {
+          const detail = raw.trim();
+          const parts = [base];
+          if (detail && detail !== base) parts.push(detail);
+          return parts.join("\n");
+        };
 
         let description = raw || t("ConnectError.ConnectFailed");
 
         if (lower.includes("executable not found")) {
-          description = t("ConnectError.ClientNotFound");
+          description = withDetail(t("ConnectError.ClientNotFound"));
         } else if (lower.includes("failed to launch client")) {
-          description = t("ConnectError.ClientLaunchFailed");
+          description = withDetail(t("ConnectError.ClientLaunchFailed"));
         } else if (lower.includes("client process exited")) {
-          description = t("ConnectError.ClientExited");
+          description = withDetail(t("ConnectError.ClientExited"));
         } else if (lower.includes("no rdp application")) {
-          description = t("ConnectError.RdpAppMissing");
+          description = withDetail(t("ConnectError.RdpAppMissing"));
         } else if (lower.includes("no vnc application")) {
-          description = t("ConnectError.VncAppMissing");
+          description = withDetail(t("ConnectError.VncAppMissing"));
         } else if (lower.includes("no database application")) {
-          description = t("ConnectError.DbAppMissing");
+          description = withDetail(t("ConnectError.DbAppMissing"));
         } else if (lower.includes("failed to execute rdp application")) {
-          description = t("ConnectError.RdpAppFailed");
+          description = withDetail(t("ConnectError.RdpAppFailed"));
         } else if (lower.includes("failed to execute vnc application")) {
-          description = t("ConnectError.VncAppFailed");
+          description = withDetail(t("ConnectError.VncAppFailed"));
         } else if (lower.includes("failed to execute database application")) {
-          description = t("ConnectError.DbAppFailed");
+          description = withDetail(t("ConnectError.DbAppFailed"));
         }
 
         toast.add({
@@ -636,6 +664,17 @@ export const useAssetAction = () => {
           description,
           color: "error",
           icon: "line-md:close-circle",
+          actions: [
+            {
+              label: t("Common.Copy"),
+              icon: "i-lucide-copy",
+              color: "neutral",
+              variant: "soft",
+              onClick: () => {
+                void useTauriClipboardManagerWriteText(`${t("ConnectError.ConnectFailed")}\n${description}`);
+              }
+            }
+          ],
           progress: true,
           duration: 4000
         });

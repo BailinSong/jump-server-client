@@ -30,7 +30,112 @@ func validateAppPath(appPath string) error {
 	return nil
 }
 
-func awakenRDPCommand(filePath string, cfg *config.AppConfig) *exec.Cmd {
+func shellQuote(value string) string {
+	if value == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
+}
+
+func buildLinuxClientSnippet(clientPath, commands string) string {
+	return fmt.Sprintf("%s %s", shellQuote(clientPath), commands)
+}
+
+func splitArgsWithLiteral(template string, literals map[string]string) []string {
+	if strings.TrimSpace(template) == "" {
+		return nil
+	}
+
+	replaced := template
+	tokenValues := map[string]string{}
+	index := 0
+
+	for placeholder, value := range literals {
+		token := fmt.Sprintf("__JMS_LITERAL_%d__", index)
+		replaced = strings.ReplaceAll(replaced, placeholder, token)
+		tokenValues[token] = value
+		index++
+	}
+
+	fields := strings.Fields(replaced)
+	args := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if value, ok := tokenValues[field]; ok {
+			args = append(args, value)
+			continue
+		}
+		for token, value := range tokenValues {
+			field = strings.ReplaceAll(field, token, value)
+		}
+		args = append(args, field)
+	}
+
+	return args
+}
+
+func buildArgsFromTemplate(template string, values map[string]string) []string {
+	if strings.TrimSpace(template) == "" {
+		return nil
+	}
+
+	replaced := template
+	tokenValues := map[string]string{}
+	index := 0
+
+	for placeholder, value := range values {
+		token := fmt.Sprintf("__JMS_LITERAL_%d__", index)
+		replaced = strings.ReplaceAll(replaced, "{"+placeholder+"}", token)
+		tokenValues[token] = value
+		index++
+	}
+
+	fields := strings.Fields(replaced)
+	args := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if value, ok := tokenValues[field]; ok {
+			args = append(args, value)
+			continue
+		}
+		for token, value := range tokenValues {
+			field = strings.ReplaceAll(field, token, value)
+		}
+		args = append(args, field)
+	}
+
+	return args
+}
+
+func buildLinuxTerminalCommand(terminalPath, clientPath, commands string) *exec.Cmd {
+	terminalName := strings.ToLower(filepath.Base(strings.TrimSpace(terminalPath)))
+	if terminalName == "" {
+		return nil
+	}
+
+	snippet := buildLinuxClientSnippet(clientPath, commands)
+
+	switch terminalName {
+	case "gnome-terminal":
+		return exec.Command(terminalPath, "--", "bash", "-c",
+			fmt.Sprintf("%s; exec bash -i", snippet),
+		)
+	case "x-terminal-emulator":
+		return exec.Command(terminalPath, "-e", "bash", "-lc", snippet)
+	case "deepin-terminal":
+		return exec.Command(terminalPath, "--keep-open", "-C", snippet)
+	case "konsole":
+		return exec.Command(terminalPath, "--noclose", "-e", "bash", "-lc", snippet)
+	case "xfce4-terminal":
+		return exec.Command(terminalPath, "--hold", "-e", "bash", "-lc", snippet)
+	case "lxterminal":
+		return exec.Command(terminalPath, "-e", "bash", "-lc", snippet)
+	case "xterm":
+		return exec.Command(terminalPath, "-hold", "-e", "bash", "-lc", snippet)
+	default:
+		return nil
+	}
+}
+
+func awakenRDPCommand(filePath string, cfg *config.AppConfig) (*exec.Cmd, error) {
 	global.LOG.Debug(filePath)
 	var appItem *config.AppItem
 	appLst := cfg.Linux.RemoteDesktop
@@ -41,14 +146,16 @@ func awakenRDPCommand(filePath string, cfg *config.AppConfig) *exec.Cmd {
 		}
 	}
 	if appItem == nil {
-		return nil
+		return nil, nil
 	}
-	args := strings.Replace(appItem.ArgFormat, "{file}", filePath, 1)
-	cmd := exec.Command(appItem.Name, strings.Split(args, " ")...)
-	return cmd
+	args := splitArgsWithLiteral(appItem.ArgFormat, map[string]string{
+		"{file}": filePath,
+	})
+	cmd := exec.Command(appItem.Name, args...)
+	return cmd, nil
 }
 
-func awakenVNCCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
+func awakenVNCCommand(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 	var appItem *config.AppItem
 	appLst := cfg.Linux.RemoteDesktop
 	for _, app := range appLst {
@@ -58,7 +165,7 @@ func awakenVNCCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		}
 	}
 	if appItem == nil {
-		return nil
+		return nil, nil
 	}
 	connectMap := map[string]string{
 		"name":     r.getName(),
@@ -71,8 +178,7 @@ func awakenVNCCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 
 	if !appItem.IsInternal {
 		if err := validateAppPath(appItem.Path); err != nil {
-			global.LOG.Error(err.Error())
-			return nil
+			return nil, fmt.Errorf("No VNC application configured or found (selected path: %s, reason: %v)", appItem.Path, err)
 		}
 	}
 	commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
@@ -82,10 +188,10 @@ func awakenVNCCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		"VNC_USERNAME="+r.getUserName(),
 		"VNC_PASSWORD="+r.Value,
 	)
-	return cmd
+	return cmd, nil
 }
 
-func awakenSSHCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
+func awakenSSHCommand(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 	var appItem *config.AppItem
 	var appLst []config.AppItem
 	switch r.Protocol {
@@ -102,7 +208,7 @@ func awakenSSHCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		}
 	}
 	if appItem == nil {
-		return nil
+		return nil, nil
 	}
 
 	// telnet 协议使用 ssh 的配置参数格式
@@ -125,32 +231,37 @@ func awakenSSHCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		currentPath, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
 		clientPath := filepath.Join(currentPath, "client")
-		out, err := exec.Command("bash", "-c", "echo $XDG_CURRENT_DESKTOP").CombinedOutput()
-		if err != nil {
-			global.LOG.Error(fmt.Sprintf("Failed to detect desktop environment: %v", err))
-			return nil
+		if appItem.Path != "" {
+			cmd = buildLinuxTerminalCommand(appItem.Path, clientPath, commands)
 		}
+		if cmd == nil {
+			out, err := exec.Command("bash", "-c", "echo $XDG_CURRENT_DESKTOP").CombinedOutput()
+			if err != nil {
+				return nil, fmt.Errorf("Failed to detect desktop environment: %v", err)
+			}
 
-		currentDesktop := strings.ToLower(strings.TrimSpace(string(out)))
+			currentDesktop := strings.ToLower(strings.TrimSpace(string(out)))
+			snippet := buildLinuxClientSnippet(clientPath, commands)
 
-		switch currentDesktop {
-		case "gnome", "ubuntu:gnome", "ukui", "cinnamon", "x-cinnamon":
-			cmd = exec.Command("gnome-terminal", "--", "bash", "-c",
-				fmt.Sprintf("%s %s; exec bash -i", clientPath, commands),
-			)
-		case "unity":
-			cmd = exec.Command("x-terminal-emulator", "-e", fmt.Sprintf("%s %s", clientPath, commands))
-		case "deepin":
-			cmd = exec.Command("deepin-terminal", "--keep-open", "-C", fmt.Sprintf("%s %s", clientPath, commands))
-		case "kde":
-			cmd = exec.Command("konsole", "--noclose", "-e", "bash", "-c", fmt.Sprintf("%s %s", clientPath, commands))
-		case "xfce":
-			cmd = exec.Command("xfce4-terminal", "--hold", "-e", fmt.Sprintf("%s %s", clientPath, commands))
-		case "lxde":
-			cmd = exec.Command("lxterminal", "-e", fmt.Sprintf("%s %s", clientPath, commands))
-		default:
-			msg := fmt.Sprintf("Not yet supported %s desktop system", currentDesktop)
-			global.LOG.Info(msg)
+			switch currentDesktop {
+			case "gnome", "ubuntu:gnome", "ukui", "cinnamon", "x-cinnamon":
+				cmd = exec.Command("gnome-terminal", "--", "bash", "-c",
+					fmt.Sprintf("%s; exec bash -i", snippet),
+				)
+			case "unity":
+				cmd = exec.Command("x-terminal-emulator", "-e", "bash", "-lc", snippet)
+			case "deepin":
+				cmd = exec.Command("deepin-terminal", "--keep-open", "-C", snippet)
+			case "kde":
+				cmd = exec.Command("konsole", "--noclose", "-e", "bash", "-lc", snippet)
+			case "xfce":
+				cmd = exec.Command("xfce4-terminal", "--hold", "-e", "bash", "-lc", snippet)
+			case "lxde":
+				cmd = exec.Command("lxterminal", "-e", "bash", "-lc", snippet)
+			default:
+				msg := fmt.Sprintf("Not yet supported %s desktop system", currentDesktop)
+				global.LOG.Info(msg)
+			}
 		}
 	} else {
 		if r.Protocol == "sqlserver" {
@@ -159,17 +270,16 @@ func awakenSSHCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		appPath := appItem.Path
 		if !appItem.IsInternal {
 			if err := validateAppPath(appItem.Path); err != nil {
-				global.LOG.Error(err.Error())
-				return nil
+				return nil, fmt.Errorf("No %s application configured or found (selected path: %s, reason: %v)", strings.ToUpper(r.Protocol), appItem.Path, err)
 			}
 		}
 		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
 		cmd = exec.Command(appPath, strings.Split(commands, " ")...)
 	}
-	return cmd
+	return cmd, nil
 }
 
-func awakenDBCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
+func awakenDBCommand(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 	var appItem *config.AppItem
 	appLst := cfg.Linux.Databases
 	for _, app := range appLst {
@@ -179,7 +289,7 @@ func awakenDBCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 		}
 	}
 	if appItem == nil {
-		return nil
+		return nil, nil
 	}
 	var cmd *exec.Cmd
 	connectMap := map[string]string{
@@ -227,21 +337,20 @@ func awakenDBCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
 			msg := fmt.Sprintf("Not yet supported %s desktop system", currentDesktop)
 			global.LOG.Info(msg)
 		}
-		return cmd
+		return cmd, nil
 	} else {
 		appPath := appItem.Path
 		if !appItem.IsInternal {
 			if err := validateAppPath(appItem.Path); err != nil {
-				global.LOG.Error(err.Error())
-				return nil
+				return nil, fmt.Errorf("No database application configured or found (selected path: %s, reason: %v)", appItem.Path, err)
 			}
 		}
 		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
-		return exec.Command(appPath, strings.Split(commands, " ")...)
+		return exec.Command(appPath, strings.Split(commands, " ")...), nil
 	}
 }
 
-func awakenOtherCommand(r *Rouse, cfg *config.AppConfig) *exec.Cmd {
+func awakenOtherCommand(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 	cmd := new(exec.Cmd)
-	return cmd
+	return cmd, nil
 }

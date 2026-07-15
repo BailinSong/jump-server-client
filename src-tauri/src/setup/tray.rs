@@ -1,6 +1,10 @@
 use log::{error, info};
 use std::error::Error;
-use tauri::{image::Image, menu::Menu, tray::TrayIconBuilder, App, Runtime};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::{image::Image, tray::TrayIconBuilder, App, AppHandle, Manager, Runtime};
+
+use super::consts::menu_labels;
+use super::menu::{open_about_window, open_settings_window};
 
 /// 从字节数据创建 Tauri Image（直接使用原始图像）
 /// 仅在 macOS 平台下使用
@@ -37,21 +41,39 @@ fn load_custom_tray_icon() -> Option<Image<'static>> {
 }
 
 /// 创建系统托盘
-pub fn setup_tray<R: Runtime>(menu: &Menu<R>, app: &App<R>) -> Result<(), Box<dyn Error>> {
+pub fn setup_tray<R: Runtime>(menu: &Menu<R>, app: &App<R>) -> Result<(), Box<dyn Error>>
+where
+    App<R>: Manager<R>,
+    AppHandle<R>: Manager<R>,
+{
+    let app_handle = app.app_handle().clone();
+
     // 尝试加载自定义托盘图标，如果失败则使用默认图标
     let icon = load_custom_tray_icon().unwrap_or_else(|| {
         info!("Using default window icon for tray");
-        app.default_window_icon()
+        app_handle
+            .default_window_icon()
             .ok_or("Failed to get default window icon")
             .unwrap()
             .clone()
     });
 
+    let tray_menu = build_tray_menu(&app_handle).unwrap_or_else(|_| menu.clone());
+
     let tray_result = TrayIconBuilder::new()
-        .menu(menu)
+        .menu(&tray_menu)
         .show_menu_on_left_click(true)
         .icon(icon)
         .on_menu_event(|app, event| match event.id.as_ref() {
+            "show-main" => {
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.unminimize();
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            }
+            "open-settings" => open_settings_window(app),
+            "about" => open_about_window(app),
             "quit" => app.exit(0),
             other => println!("menu item {} not handled", other),
         })
@@ -76,4 +98,54 @@ pub fn setup_tray<R: Runtime>(menu: &Menu<R>, app: &App<R>) -> Result<(), Box<dy
             Err(Box::new(e))
         }
     }
+}
+
+fn build_tray_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
+where
+    AppHandle<R>: Manager<R>,
+{
+    let use_zh = prefers_zh();
+    let app_name = app.package_info().name.clone();
+    let labels = menu_labels(use_zh, &app_name);
+
+    let show_main = if use_zh {
+        "显示主窗口"
+    } else {
+        "Show Main Window"
+    };
+
+    let show_main_i = MenuItem::with_id(app, "show-main", show_main, true, None::<&str>)?;
+    let settings_i = MenuItem::with_id(
+        app,
+        "open-settings",
+        labels.settings_label.as_str(),
+        true,
+        None::<&str>,
+    )?;
+    let about_i = MenuItem::with_id(
+        app,
+        "about",
+        labels.about_label.as_str(),
+        true,
+        None::<&str>,
+    )?;
+    let quit_i = MenuItem::with_id(app, "quit", labels.quit_label.as_str(), true, None::<&str>)?;
+
+    Menu::with_items(
+        app,
+        &[
+            &show_main_i,
+            &settings_i,
+            &about_i,
+            &PredefinedMenuItem::separator(app)?,
+            &quit_i,
+        ],
+    )
+}
+
+fn prefers_zh() -> bool {
+    tauri_plugin_os::locale()
+        .or_else(|| std::env::var("LANG").ok())
+        .map(|lang| lang.to_lowercase().starts_with("zh"))
+        .unwrap_or(false)
 }

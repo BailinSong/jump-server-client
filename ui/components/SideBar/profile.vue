@@ -294,7 +294,7 @@ async function openToolWindow(
       return;
     }
 
-    const isMac = isMacOS.value;
+    const useNativeWindowFrame = isMacOS.value;
 
     // eslint-disable-next-line no-new
     new useTauriWebviewWindowWebviewWindow(label, {
@@ -307,8 +307,8 @@ async function openToolWindow(
       hiddenTitle: true,
       titleBarStyle: "overlay",
       trafficLightPosition: new LogicalPosition(10, 22),
-      decorations: isMac,
-      shadow: isMac
+      decorations: useNativeWindowFrame,
+      shadow: useNativeWindowFrame
     });
   } catch {
     await navigateTo(url);
@@ -437,19 +437,6 @@ const emitVersionAlertAndCloseModal = (payload: VersionAlertPayload) => {
   useEventBus().emit("versionAlert", payload);
 };
 
-const handleInvalidSiteVersion = () => {
-  clearLoginBtnUnlockTimer();
-  loginBtn.value = false;
-  hasValidationError.value = true;
-  errorMessage.value = t("Login.InvalidSiteError");
-
-  void useTauriCoreInvoke("auth_cancel", {});
-
-  nextTick(() => {
-    inputRef.value?.$el?.querySelector("input")?.focus();
-  });
-};
-
 const checkVersionBeforeOAuth = async (site: string) => {
   await useTauriCoreInvoke("set_api_session", {
     sessionKey: site,
@@ -466,8 +453,11 @@ const checkVersionBeforeOAuth = async (site: string) => {
   ]);
 
   if (!versionResponse || versionResponse.status === 0) {
-    handleInvalidSiteVersion();
-    return false;
+    console.warn("Skip version precheck before OAuth because version endpoint is unavailable", {
+      site,
+      versionResponse
+    });
+    return true;
   }
 
   const { status: versionStatus, versions } = normalizeVersionMessage(versionResponse);

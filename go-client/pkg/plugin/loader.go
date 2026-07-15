@@ -21,15 +21,14 @@ type indexFile struct {
 }
 
 type indexEntry struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Category string   `json:"category"`
-	Platforms []string `json:"platforms"`
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Category string `json:"category"`
 }
 
 type pluginState struct {
-	Version    int                       `json:"version"`
-	Selections map[string]string         `json:"selections"`
+	Version    int                        `json:"version"`
+	Selections map[string]string          `json:"selections"`
 	Plugins    map[string]pluginStateItem `json:"plugins"`
 }
 
@@ -48,31 +47,19 @@ type manifest struct {
 	Comment     map[string]string `json:"comment"`
 }
 
-type connectFile struct {
-	Platforms map[string]platformConnect `json:"platforms"`
-}
-
 type platformConnect struct {
 	DisplayName string                 `json:"display_name"`
 	Executable  executableConfig       `json:"executable"`
 	Launch      map[string]interface{} `json:"launch"`
+	MatchFirst  []string               `json:"match_first"`
+	IsDefault   bool                   `json:"is_default"`
+	IsSet       bool                   `json:"is_set"`
+	IsInternal  bool                   `json:"is_internal"`
 }
 
 type executableConfig struct {
 	Type    string `json:"type"`
 	Default string `json:"default"`
-}
-
-type defaultsFile struct {
-	Platforms map[string]platformDefaults `json:"platforms"`
-}
-
-type platformDefaults struct {
-	MatchFirst  []string `json:"match_first"`
-	IsDefault   bool     `json:"is_default"`
-	IsSet       bool     `json:"is_set"`
-	IsInternal  bool     `json:"is_internal"`
-	Path        string   `json:"path"`
 }
 
 func osKey() string {
@@ -88,10 +75,16 @@ func osKey() string {
 
 func resolveBuiltinDir() string {
 	candidates := []string{}
+	osName := osKey()
 
 	if exe, err := os.Executable(); err == nil {
 		base := filepath.Dir(exe)
 		candidates = append(candidates,
+			filepath.Join(base, "resources", "plugins", osName),
+			filepath.Join(base, "..", "resources", "plugins", osName),
+			filepath.Join(base, "..", "..", "plugins", osName),
+			filepath.Join(base, "..", "..", "resources", "plugins", osName),
+			filepath.Join(base, "plugins", osName),
 			filepath.Join(base, "resources", "plugins", "builtin"),
 			filepath.Join(base, "..", "resources", "plugins", "builtin"),
 			filepath.Join(base, "..", "..", "plugins", "builtin"),
@@ -102,6 +95,9 @@ func resolveBuiltinDir() string {
 
 	if cwd, err := os.Getwd(); err == nil {
 		candidates = append(candidates,
+			filepath.Join(cwd, "plugins", osName),
+			filepath.Join(cwd, "..", "plugins", osName),
+			filepath.Join(cwd, "..", "..", "plugins", osName),
 			filepath.Join(cwd, "plugins", "builtin"),
 			filepath.Join(cwd, "..", "plugins", "builtin"),
 			filepath.Join(cwd, "..", "..", "plugins", "builtin"),
@@ -122,7 +118,11 @@ func resolveStatePath(configDir string) string {
 		return statePath
 	}
 
+	osName := osKey()
 	candidates := []string{
+		filepath.Join("plugins", osName, "plugins-state.defaults.json"),
+		filepath.Join("..", "plugins", osName, "plugins-state.defaults.json"),
+		filepath.Join("..", "..", "plugins", osName, "plugins-state.defaults.json"),
 		filepath.Join("plugins", "plugins-state.defaults.json"),
 		filepath.Join("..", "plugins", "plugins-state.defaults.json"),
 		filepath.Join("..", "..", "plugins", "plugins-state.defaults.json"),
@@ -130,6 +130,9 @@ func resolveStatePath(configDir string) string {
 	if exe, err := os.Executable(); err == nil {
 		base := filepath.Dir(exe)
 		candidates = append(candidates,
+			filepath.Join(base, "resources", "plugins", osName, "plugins-state.defaults.json"),
+			filepath.Join(base, "..", "..", "plugins", osName, "plugins-state.defaults.json"),
+			filepath.Join(base, "..", "..", "resources", "plugins", osName, "plugins-state.defaults.json"),
 			filepath.Join(base, "resources", "plugins", "plugins-state.defaults.json"),
 			filepath.Join(base, "..", "..", "plugins", "plugins-state.defaults.json"),
 			filepath.Join(base, "..", "..", "resources", "plugins", "plugins-state.defaults.json"),
@@ -161,26 +164,75 @@ func readJSON(path string, target interface{}) error {
 	return json.Unmarshal(data, target)
 }
 
+func readConnect(path, osName string) (platformConnect, bool, error) {
+	var raw map[string]json.RawMessage
+	if err := readJSON(path, &raw); err != nil {
+		return platformConnect{}, false, err
+	}
+
+	if platformsRaw, ok := raw["platforms"]; ok {
+		var platforms map[string]platformConnect
+		if err := json.Unmarshal(platformsRaw, &platforms); err != nil {
+			return platformConnect{}, false, err
+		}
+		connect, ok := platforms[osName]
+		return connect, ok, nil
+	}
+
+	var connect platformConnect
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return platformConnect{}, false, err
+	}
+	if err := json.Unmarshal(data, &connect); err != nil {
+		return platformConnect{}, false, err
+	}
+	return connect, true, nil
+}
+
 func sanitizeState(state *pluginState) bool {
 	if state == nil || state.Selections == nil {
 		return false
 	}
 
 	changed := false
+	osName := osKey()
+	for key, value := range state.Selections {
+		if strings.HasPrefix(value, "builtin.") {
+			state.Selections[key] = osName + strings.TrimPrefix(value, "builtin")
+			changed = true
+		}
+	}
+	for pluginID, item := range state.Plugins {
+		if strings.HasPrefix(pluginID, "builtin.") {
+			state.Plugins[osName+strings.TrimPrefix(pluginID, "builtin")] = item
+			delete(state.Plugins, pluginID)
+			changed = true
+		}
+	}
+
 	if runtime.GOOS != "windows" {
 		for _, key := range []string{"terminal:ssh", "terminal:telnet"} {
-			if state.Selections[key] == "builtin.putty" {
-				delete(state.Selections, key)
+			if state.Selections[key] == osName+".putty" {
+				state.Selections[key] = osName + ".terminal"
 				changed = true
 			}
 		}
 	}
 
-	if state.Selections["filetransfer:sftp"] != "builtin.iterm-sftp" {
+	if runtime.GOOS == "linux" {
+		switch state.Selections["remotedesktop:rdp"] {
+		case "linux.mstsc", "linux.remmina":
+			state.Selections["remotedesktop:rdp"] = "linux.xfreerdp"
+			changed = true
+		}
+	}
+
+	if state.Selections["filetransfer:sftp"] != osName+".iterm-sftp" {
 		return changed
 	}
 
-	item, ok := state.Plugins["builtin.iterm-sftp"]
+	item, ok := state.Plugins[osName+".iterm-sftp"]
 	if ok && (item.Enabled || strings.TrimSpace(item.Path) != "") {
 		return changed
 	}
@@ -208,7 +260,7 @@ func launchToArgFormat(launch map[string]interface{}) (string, []config.AutoItCo
 	}
 }
 
-func resolvePath(pluginID string, defaults platformDefaults, connect platformConnect, state pluginState) (string, bool, bool) {
+func resolvePath(pluginID string, connect platformConnect, state pluginState) (string, bool, bool) {
 	userPath := ""
 	enabled := true
 	hasUserPlugin := false
@@ -218,40 +270,22 @@ func resolvePath(pluginID string, defaults platformDefaults, connect platformCon
 		enabled = item.Enabled
 	}
 
-	path := defaults.Path
+	path := connect.Executable.Default
 	if userPath != "" {
 		path = userPath
-	} else if path == "" {
-		path = connect.Executable.Default
 	}
 
-	isSet := (defaults.IsSet || userPath != "" || (defaults.IsInternal && path != "" && hasUserPlugin)) && enabled
-	return path, isSet, defaults.IsInternal
+	isSet := (connect.IsSet || userPath != "" || (connect.IsInternal && path != "" && hasUserPlugin)) && enabled
+	return path, isSet, connect.IsInternal
 }
 
-func buildMatchFirst(pluginID, category string, protocols []string, selections map[string]string, fallback []string) []string {
+func buildMatchFirst(pluginID, category string, protocols []string, selections map[string]string) []string {
 	matched := []string{}
 	for _, proto := range protocols {
 		key := category + ":" + proto
 		if selections[key] == pluginID {
 			matched = append(matched, proto)
 		}
-	}
-
-	seen := map[string]bool{}
-	for _, proto := range matched {
-		seen[proto] = true
-	}
-	for _, proto := range fallback {
-		if seen[proto] {
-			continue
-		}
-		key := category + ":" + proto
-		if selected := selections[key]; selected != "" && selected != pluginID {
-			continue
-		}
-		matched = append(matched, proto)
-		seen[proto] = true
 	}
 	return matched
 }
@@ -314,22 +348,14 @@ func LoadAppConfig(configDir string) (*config.AppConfig, bool) {
 	for _, entry := range index.Plugins {
 		pluginDir := filepath.Join(builtinDir, entry.ID)
 		var manifest manifest
-		var connect connectFile
-		var defaults defaultsFile
 
 		if err := readJSON(filepath.Join(pluginDir, "manifest.json"), &manifest); err != nil {
 			continue
 		}
-		if err := readJSON(filepath.Join(pluginDir, "connect.json"), &connect); err != nil {
+		platformConnect, ok, err := readConnect(filepath.Join(pluginDir, "connect.json"), osName)
+		if err != nil || !ok || platformConnect.Executable.Type == "" {
 			continue
 		}
-		_ = readJSON(filepath.Join(pluginDir, "defaults.json"), &defaults)
-
-		platformConnect, ok := connect.Platforms[osName]
-		if !ok {
-			continue
-		}
-		platformDefaults := defaults.Platforms[osName]
 
 		displayName := platformConnect.DisplayName
 		if displayName == "" {
@@ -337,8 +363,11 @@ func LoadAppConfig(configDir string) (*config.AppConfig, bool) {
 		}
 
 		argFormat, autoit := launchToArgFormat(platformConnect.Launch)
-		path, isSet, isInternal := resolvePath(entry.ID, platformDefaults, platformConnect, state)
-		matchFirst := buildMatchFirst(entry.ID, manifest.Category, manifest.Protocols, state.Selections, platformDefaults.MatchFirst)
+		matchFirst := buildMatchFirst(entry.ID, manifest.Category, manifest.Protocols, state.Selections)
+		path, isSet, isInternal := resolvePath(entry.ID, platformConnect, state)
+		if len(matchFirst) > 0 {
+			isSet = true
+		}
 
 		item := config.AppItem{
 			Name:        manifest.Name,
@@ -350,7 +379,7 @@ func LoadAppConfig(configDir string) (*config.AppConfig, bool) {
 			ArgFormat:   argFormat,
 			AutoIt:      autoit,
 			IsInternal:  isInternal,
-			IsDefault:   platformDefaults.IsDefault,
+			IsDefault:   platformConnect.IsDefault,
 			IsSet:       isSet,
 		}
 

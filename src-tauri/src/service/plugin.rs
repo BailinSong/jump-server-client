@@ -1,5 +1,5 @@
 use serde_json::{json, Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tauri::AppHandle;
@@ -19,66 +19,114 @@ impl PluginService {
         }
     }
 
-    fn resolve_builtin_dir(app: &AppHandle) -> Option<PathBuf> {
-        let resource = app
-            .path()
-            .resolve(
-                "resources/plugins/builtin",
-                tauri::path::BaseDirectory::Resource,
-            )
-            .ok()
-            .filter(|p| p.join("index.json").is_file())
-            .or_else(|| {
-                app.path()
-                    .resolve("plugins/builtin", tauri::path::BaseDirectory::Resource)
-                    .ok()
-                    .filter(|p| p.join("index.json").is_file())
-            });
+    fn resolve_resource_dir(app: &AppHandle, candidates: &[&str], marker: &str) -> Option<PathBuf> {
+        for candidate in candidates {
+            let Ok(path) = app
+                .path()
+                .resolve(candidate, tauri::path::BaseDirectory::Resource)
+            else {
+                continue;
+            };
 
-        if resource.is_some() {
-            return resource;
+            if path.join(marker).is_file() {
+                log::info!("Resolved resource dir '{}' to {:?}", candidate, path);
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    fn resolve_resource_file(app: &AppHandle, candidates: &[&str]) -> Option<PathBuf> {
+        for candidate in candidates {
+            let Ok(path) = app
+                .path()
+                .resolve(candidate, tauri::path::BaseDirectory::Resource)
+            else {
+                continue;
+            };
+
+            if path.is_file() {
+                log::info!("Resolved resource file '{}' to {:?}", candidate, path);
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    fn resolve_builtin_dir(app: &AppHandle) -> Option<PathBuf> {
+        let os_key = Self::os_key();
+        let resource_candidates = [
+            format!("resources/plugins/{os_key}"),
+            format!("plugins/{os_key}"),
+            os_key.to_string(),
+            "resources/plugins/builtin".to_string(),
+            "plugins/builtin".to_string(),
+            "builtin".to_string(),
+        ];
+        let resource_refs: Vec<&str> = resource_candidates.iter().map(String::as_str).collect();
+        let resource = Self::resolve_resource_dir(app, &resource_refs, "index.json");
+
+        if let Some(path) = resource {
+            return Some(path);
         }
 
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let candidates = [
+            cwd.join("plugins").join(os_key),
+            cwd.join("../plugins").join(os_key),
+            cwd.join("../../plugins").join(os_key),
             cwd.join("plugins/builtin"),
             cwd.join("../plugins/builtin"),
             cwd.join("../../plugins/builtin"),
         ];
-        candidates
+        let resolved = candidates
             .into_iter()
-            .find(|p| p.join("index.json").is_file())
+            .find(|p| p.join("index.json").is_file());
+
+        if let Some(path) = resolved.as_ref() {
+            log::info!("Resolved builtin plugins from cwd fallback: {:?}", path);
+        }
+
+        resolved
     }
 
     fn resolve_defaults_path(app: &AppHandle) -> Option<PathBuf> {
-        let resource = app
-            .path()
-            .resolve(
-                "resources/plugins/plugins-state.defaults.json",
-                tauri::path::BaseDirectory::Resource,
-            )
-            .ok()
-            .filter(|p| p.is_file())
-            .or_else(|| {
-                app.path()
-                    .resolve(
-                        "plugins/plugins-state.defaults.json",
-                        tauri::path::BaseDirectory::Resource,
-                    )
-                    .ok()
-                    .filter(|p| p.is_file())
-            });
+        let os_key = Self::os_key();
+        let resource_candidates = [
+            format!("resources/plugins/{os_key}/plugins-state.defaults.json"),
+            format!("plugins/{os_key}/plugins-state.defaults.json"),
+            format!("{os_key}/plugins-state.defaults.json"),
+            "resources/plugins/plugins-state.defaults.json".to_string(),
+            "plugins/plugins-state.defaults.json".to_string(),
+            "plugins-state.defaults.json".to_string(),
+        ];
+        let resource_refs: Vec<&str> = resource_candidates.iter().map(String::as_str).collect();
+        let resource = Self::resolve_resource_file(app, &resource_refs);
 
-        if resource.is_some() {
-            return resource;
+        if let Some(path) = resource {
+            return Some(path);
         }
 
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         let candidates = [
+            cwd.join("plugins")
+                .join(os_key)
+                .join("plugins-state.defaults.json"),
+            cwd.join("../plugins")
+                .join(os_key)
+                .join("plugins-state.defaults.json"),
             cwd.join("plugins/plugins-state.defaults.json"),
             cwd.join("../plugins/plugins-state.defaults.json"),
         ];
-        candidates.into_iter().find(|p| p.is_file())
+        let resolved = candidates.into_iter().find(|p| p.is_file());
+
+        if let Some(path) = resolved.as_ref() {
+            log::info!("Resolved plugin defaults from cwd fallback: {:?}", path);
+        }
+
+        resolved
     }
 
     fn read_json(path: &Path) -> Result<Value, String> {
@@ -94,13 +142,68 @@ impl PluginService {
         };
 
         let mut changed = false;
-        if Self::os_key() != "windows" {
-            if let Some(selections) = state_obj.get_mut("selections").and_then(|v| v.as_object_mut()) {
-                for key in ["terminal:ssh", "terminal:telnet"] {
-                    if selections.get(key).and_then(|v| v.as_str()) == Some("builtin.putty") {
-                        selections.remove(key);
+        let os_key = Self::os_key();
+        if let Some(selections) = state_obj
+            .get_mut("selections")
+            .and_then(|v| v.as_object_mut())
+        {
+            for value in selections.values_mut() {
+                if let Some(plugin_id) = value.as_str() {
+                    if let Some(suffix) = plugin_id.strip_prefix("builtin.") {
+                        *value = Value::String(format!("{os_key}.{suffix}"));
                         changed = true;
                     }
+                }
+            }
+        }
+        if let Some(plugins) = state_obj.get_mut("plugins").and_then(|v| v.as_object_mut()) {
+            let legacy_entries: Vec<(String, Value)> = plugins
+                .iter()
+                .filter_map(|(key, value)| {
+                    key.strip_prefix("builtin.")
+                        .map(|suffix| (format!("{os_key}.{suffix}"), value.clone()))
+                })
+                .collect();
+            for (key, value) in legacy_entries {
+                plugins.insert(key, value);
+                changed = true;
+            }
+            plugins.retain(|key, _| !key.starts_with("builtin."));
+        }
+
+        if Self::os_key() != "windows" {
+            if let Some(selections) = state_obj
+                .get_mut("selections")
+                .and_then(|v| v.as_object_mut())
+            {
+                for key in ["terminal:ssh", "terminal:telnet"] {
+                    if selections.get(key).and_then(|v| v.as_str())
+                        == Some(&format!("{os_key}.putty"))
+                    {
+                        selections.insert(
+                            key.to_string(),
+                            Value::String(format!("{os_key}.terminal")),
+                        );
+                        changed = true;
+                    }
+                }
+            }
+        }
+
+        if Self::os_key() == "linux" {
+            if let Some(selections) = state_obj
+                .get_mut("selections")
+                .and_then(|v| v.as_object_mut())
+            {
+                match selections.get("remotedesktop:rdp").and_then(|v| v.as_str()) {
+                    Some("linux.mstsc") | Some("linux.remmina") => {
+                        selections.insert(
+                            "remotedesktop:rdp".to_string(),
+                            Value::String("linux.xfreerdp".to_string()),
+                        );
+                        changed = true;
+                    }
+                    _ => {}
                 }
             }
         }
@@ -109,7 +212,7 @@ impl PluginService {
             .get("selections")
             .and_then(|v| v.get("filetransfer:sftp"))
             .and_then(|v| v.as_str())
-            == Some("builtin.iterm-sftp");
+            == Some(&format!("{os_key}.iterm-sftp"));
 
         if !should_remove_sftp_iterm {
             return changed;
@@ -117,10 +220,12 @@ impl PluginService {
 
         let has_user_override = state_obj
             .get("plugins")
-            .and_then(|v| v.get("builtin.iterm-sftp"))
+            .and_then(|v| v.get(format!("{os_key}.iterm-sftp")))
             .and_then(|v| v.as_object())
             .map(|obj| {
-                obj.get("enabled").and_then(|v| v.as_bool()).unwrap_or(false)
+                obj.get("enabled")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
                     || obj
                         .get("path")
                         .and_then(|v| v.as_str())
@@ -133,7 +238,10 @@ impl PluginService {
             return changed;
         }
 
-        if let Some(selections) = state_obj.get_mut("selections").and_then(|v| v.as_object_mut()) {
+        if let Some(selections) = state_obj
+            .get_mut("selections")
+            .and_then(|v| v.as_object_mut())
+        {
             if selections.remove("filetransfer:sftp").is_some() {
                 changed = true;
             }
@@ -165,9 +273,20 @@ impl PluginService {
         }
     }
 
+    fn platform_connect(connect: &Value, os_key: &str) -> Option<Value> {
+        if let Some(platform_connect) = connect.get("platforms").and_then(|p| p.get(os_key)) {
+            return Some(platform_connect.clone());
+        }
+
+        if connect.get("executable").is_some() {
+            return Some(connect.clone());
+        }
+
+        None
+    }
+
     fn resolve_path(
         plugin_id: &str,
-        platform_defaults: &Value,
         platform_connect: &Value,
         user_state: &Value,
     ) -> (String, bool, bool) {
@@ -180,12 +299,6 @@ impl PluginService {
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
 
-        let default_path = platform_defaults
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
         let exec_default = platform_connect
             .get("executable")
             .and_then(|e| e.get("default"))
@@ -193,20 +306,14 @@ impl PluginService {
             .unwrap_or("")
             .to_string();
 
-        let path = user_path.clone().unwrap_or_else(|| {
-            if !default_path.is_empty() {
-                default_path
-            } else {
-                exec_default
-            }
-        });
+        let path = user_path.clone().unwrap_or(exec_default);
 
-        let is_internal = platform_defaults
+        let is_internal = platform_connect
             .get("is_internal")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
 
-        let is_set = platform_defaults
+        let is_set = platform_connect
             .get("is_set")
             .and_then(|v| v.as_bool())
             .unwrap_or(false)
@@ -239,7 +346,6 @@ impl PluginService {
 
     fn validate_user_path_executable(
         platform_connect: &Value,
-        platform_defaults: &Value,
         user_state: &Value,
         plugin_id: &str,
     ) -> Result<(), String> {
@@ -247,14 +353,13 @@ impl PluginService {
             return Ok(());
         }
 
-        let (path, _, _) =
-            Self::resolve_path(plugin_id, platform_defaults, platform_connect, user_state);
+        let (path, _, _) = Self::resolve_path(plugin_id, platform_connect, user_state);
         if Self::user_path_exists(platform_connect, &path) {
             return Ok(());
         }
 
         if path.trim().is_empty() {
-            return Err("executable not found".to_string());
+            return Err("executable not found: (empty path)".to_string());
         }
 
         Err(format!("executable not found: {}", path.trim()))
@@ -288,17 +393,10 @@ impl PluginService {
     ) -> Result<Option<Value>, String> {
         let manifest = Self::read_json(&plugin_dir.join("manifest.json"))?;
         let connect = Self::read_json(&plugin_dir.join("connect.json"))?;
-        let defaults = Self::read_json(&plugin_dir.join("defaults.json")).unwrap_or(json!({}));
 
-        let platform_connect = connect.get("platforms").and_then(|p| p.get(os_key));
-        let Some(platform_connect) = platform_connect else {
+        let Some(platform_connect) = Self::platform_connect(&connect, os_key) else {
             return Ok(None);
         };
-
-        let platform_defaults = defaults
-            .get("platforms")
-            .and_then(|p| p.get(os_key))
-            .unwrap_or(&Value::Null);
 
         let category = manifest
             .get("category")
@@ -319,15 +417,18 @@ impl PluginService {
         let launch = platform_connect.get("launch").unwrap_or(&Value::Null);
         let (arg_format, autoit) = Self::launch_to_arg_format(launch);
 
-        let (path, is_set, is_internal) =
-            Self::resolve_path(plugin_id, platform_defaults, platform_connect, user_state);
+        let (path, mut is_set, is_internal) =
+            Self::resolve_path(plugin_id, &platform_connect, user_state);
 
-        let executable_type = Self::executable_type(platform_connect);
-        let path_exists = Self::user_path_exists(platform_connect, &path);
+        let executable_type = Self::executable_type(&platform_connect);
+        let path_exists = Self::user_path_exists(&platform_connect, &path);
 
         let match_first = Self::build_match_first(plugin_id, category, &protocols, selections);
+        if !match_first.is_empty() {
+            is_set = true;
+        }
 
-        let is_default = platform_defaults
+        let is_default = platform_connect
             .get("is_default")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
@@ -389,12 +490,12 @@ impl PluginService {
 
     pub fn build_app_config(app: &AppHandle, config_dir: &Path) -> Result<Value, String> {
         let builtin_dir = Self::resolve_builtin_dir(app)
-            .ok_or_else(|| "plugins/builtin not found".to_string())?;
+            .ok_or_else(|| "platform plugins directory not found".to_string())?;
         let index = Self::read_json(&builtin_dir.join("index.json"))?;
         let plugins = index
             .get("plugins")
             .and_then(|v| v.as_array())
-            .ok_or_else(|| "invalid plugins/builtin/index.json".to_string())?;
+            .ok_or_else(|| "invalid platform plugins index.json".to_string())?;
 
         let user_state = Self::load_user_state(app, config_dir);
         let selections = user_state
@@ -431,80 +532,8 @@ impl PluginService {
             }
         }
 
-        // Fallback: if no selection for a protocol, use defaults.json match_first
-        Self::apply_default_match_first(&mut per_category, &builtin_dir, plugins, os_key);
-
-        Ok(json!({
-            "terminal": per_category.get("terminal").cloned().unwrap_or_default(),
-            "remotedesktop": per_category.get("remotedesktop").cloned().unwrap_or_default(),
-            "filetransfer": per_category.get("filetransfer").cloned().unwrap_or_default(),
-            "databases": per_category.get("databases").cloned().unwrap_or_default(),
-        }))
-    }
-
-    fn apply_default_match_first(
-        per_category: &mut HashMap<String, Vec<Value>>,
-        builtin_dir: &Path,
-        plugins: &[Value],
-        os_key: &str,
-    ) {
-        let protocols_with_selection: HashSet<String> = per_category
-            .values()
-            .flat_map(|items| items.iter())
-            .flat_map(|item| {
-                item.get("match_first")
-                    .and_then(|v| v.as_array())
-                    .cloned()
-                    .unwrap_or_default()
-            })
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-            .collect();
-
-        for entry in plugins {
-            let Some(plugin_id) = entry.get("id").and_then(|v| v.as_str()) else {
-                continue;
-            };
-            let Some(category) = entry.get("category").and_then(|v| v.as_str()) else {
-                continue;
-            };
-            let Ok(defaults) = Self::read_json(&builtin_dir.join(plugin_id).join("defaults.json"))
-            else {
-                continue;
-            };
-            let Some(platform_defaults) = defaults.get("platforms").and_then(|p| p.get(os_key))
-            else {
-                continue;
-            };
-            let default_match = platform_defaults
-                .get("match_first")
-                .and_then(|v| v.as_array())
-                .cloned()
-                .unwrap_or_default();
-
-            for proto_val in default_match {
-                let Some(proto) = proto_val.as_str() else {
-                    continue;
-                };
-                if protocols_with_selection.contains(proto) {
-                    continue;
-                }
-                if let Some(items) = per_category.get_mut(category) {
-                    for item in items.iter_mut() {
-                        if item.get("_plugin_id").and_then(|v| v.as_str()) == Some(plugin_id) {
-                            item.as_object_mut()
-                                .unwrap()
-                                .entry("match_first")
-                                .or_insert(json!([]))
-                                .as_array_mut()
-                                .unwrap()
-                                .push(Value::String(proto.to_string()));
-                        }
-                    }
-                }
-            }
-        }
-
-        // strip internal _plugin_id before returning to frontend
+        // Strip internal _plugin_id before returning to frontend.
+        // Selections alone drive match_first — no connect.json fallback.
         for items in per_category.values_mut() {
             for item in items.iter_mut() {
                 if let Some(obj) = item.as_object_mut() {
@@ -512,6 +541,13 @@ impl PluginService {
                 }
             }
         }
+
+        Ok(json!({
+            "terminal": per_category.get("terminal").cloned().unwrap_or_default(),
+            "remotedesktop": per_category.get("remotedesktop").cloned().unwrap_or_default(),
+            "filetransfer": per_category.get("filetransfer").cloned().unwrap_or_default(),
+            "databases": per_category.get("databases").cloned().unwrap_or_default(),
+        }))
     }
 
     pub fn is_plugins_enabled(config: &Value) -> bool {
@@ -543,27 +579,20 @@ impl PluginService {
         protocol: &str,
         name: &str,
         new_path: Option<String>,
+        enabled: bool,
     ) -> Result<Value, String> {
         let builtin_dir = Self::resolve_builtin_dir(app)
-            .ok_or_else(|| "plugins/builtin not found".to_string())?;
+            .ok_or_else(|| "platform plugins directory not found".to_string())?;
         let plugin_id = Self::find_plugin_id_by_name(&builtin_dir, name, category)
             .ok_or_else(|| format!("plugin '{name}' not found in category '{category}'"))?;
 
         let state_path = config_dir.join("plugins-state.json");
         let mut state = Self::load_user_state(app, config_dir);
 
-        let connect = Self::read_json(&builtin_dir.join(&plugin_id).join("connect.json"))?;
-        let defaults = Self::read_json(&builtin_dir.join(&plugin_id).join("defaults.json"))
-            .unwrap_or(json!({}));
         let os_key = Self::os_key();
-        let platform_connect = connect
-            .get("platforms")
-            .and_then(|p| p.get(os_key))
+        let connect = Self::read_json(&builtin_dir.join(&plugin_id).join("connect.json"))?;
+        let platform_connect = Self::platform_connect(&connect, os_key)
             .ok_or_else(|| format!("plugin '{name}' has no config for OS '{os_key}'"))?;
-        let platform_defaults = defaults
-            .get("platforms")
-            .and_then(|p| p.get(os_key))
-            .unwrap_or(&Value::Null);
 
         if let Some(p) = new_path {
             let trimmed = p.trim();
@@ -591,31 +620,38 @@ impl PluginService {
             }
         }
 
-        Self::validate_user_path_executable(
-            platform_connect,
-            platform_defaults,
-            &state,
-            &plugin_id,
-        )?;
+        if enabled {
+            Self::validate_user_path_executable(&platform_connect, &state, &plugin_id)?;
+        }
 
         let state_obj = state.as_object_mut().ok_or("invalid plugins-state")?;
         let selection_key = format!("{category}:{protocol}");
-        state_obj
-            .entry("selections")
-            .or_insert(json!({}))
-            .as_object_mut()
-            .unwrap()
-            .insert(selection_key, Value::String(plugin_id.clone()));
-        state_obj
-            .entry("plugins")
-            .or_insert(json!({}))
-            .as_object_mut()
-            .unwrap()
-            .entry(plugin_id)
-            .or_insert(json!({}))
-            .as_object_mut()
-            .unwrap()
-            .insert("enabled".into(), Value::Bool(true));
+        {
+            let selections = state_obj
+                .entry("selections")
+                .or_insert(json!({}))
+                .as_object_mut()
+                .unwrap();
+            if enabled {
+                selections.insert(selection_key, Value::String(plugin_id.clone()));
+            } else {
+                // Keep the key with an empty value so defaults are not re-applied
+                // (allows disabling even when a protocol has only one app).
+                selections.insert(selection_key, Value::String(String::new()));
+            }
+        }
+        if enabled {
+            let entry = state_obj
+                .entry("plugins")
+                .or_insert(json!({}))
+                .as_object_mut()
+                .unwrap()
+                .entry(plugin_id)
+                .or_insert(json!({}))
+                .as_object_mut()
+                .unwrap();
+            entry.insert("enabled".into(), Value::Bool(true));
+        }
 
         let pretty = serde_json::to_string_pretty(&state)
             .map_err(|e| format!("serialize plugins-state.json failed: {}", e))?;

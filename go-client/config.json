@@ -1,6 +1,6 @@
 {
   "filename": "Jumpserve Clients Config",
-  "version": 9,
+  "version": 11,
   "windowBounds": {
     "width": 1280,
     "height": 800
@@ -12,7 +12,7 @@
   },
   "_plugins": {
     "enabled": true,
-    "builtin_dir": "plugins/builtin",
+    "builtin_dir": "plugins",
     "state_file": "plugins-state.json"
   }
 }

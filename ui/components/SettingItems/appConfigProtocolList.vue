@@ -16,8 +16,8 @@ const items = computed<ConfigItem[]>(() => {
 });
 
 const isSelected = (item: ConfigItem) => item.match_first?.includes(props.protocol);
-const handleToggle = async (item: ConfigItem) => {
-  await selectClient(props.category, props.protocol, item.name);
+const handleToggle = async (item: ConfigItem, enabled: boolean) => {
+  await selectClient(props.category, props.protocol, item.name, enabled);
 };
 </script>
 
@@ -30,7 +30,7 @@ const handleToggle = async (item: ConfigItem) => {
         :item="item"
         :protocol="props.protocol"
         :selected="isSelected(item)"
-        @toggle="() => handleToggle(item)"
+        @toggle="(enabled) => handleToggle(item, enabled)"
       />
     </template>
 
