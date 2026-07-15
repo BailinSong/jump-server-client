@@ -630,27 +630,52 @@ export const useAssetAction = () => {
         const payload = event.payload as eventPayload;
         const raw = payload.error || "";
         const lower = raw.toLowerCase();
+        const extractClientPath = () => {
+          const selectedPathToken = "selected path:";
+          const selectedPathStart = lower.indexOf(selectedPathToken);
+          if (selectedPathStart >= 0) {
+            const valueStart = selectedPathStart + selectedPathToken.length;
+            const reasonStart = lower.indexOf(", reason:", valueStart);
+            const closeStart = lower.indexOf(")", valueStart);
+            const valueEnd = reasonStart >= 0 ? reasonStart : closeStart >= 0 ? closeStart : raw.length;
+            const path = raw.slice(valueStart, valueEnd).trim();
+            if (path) return path;
+          }
+
+          const executableToken = "executable not found:";
+          const executableStart = lower.indexOf(executableToken);
+          if (executableStart >= 0) {
+            const path = raw.slice(executableStart + executableToken.length).trim();
+            if (path) return path;
+          }
+
+          return "";
+        };
+        const withPath = (base: string) => {
+          const path = extractClientPath();
+          return path ? `${base}\n${path}` : base;
+        };
 
         let description = raw || t("ConnectError.ConnectFailed");
 
         if (lower.includes("executable not found")) {
-          description = t("Setting.ExecutableNotFound");
+          description = withPath(t("Setting.ExecutableNotFound"));
         } else if (lower.includes("failed to launch client")) {
           description = t("ConnectError.ClientLaunchFailed");
         } else if (lower.includes("client process exited")) {
           description = t("ConnectError.ClientExited");
         } else if (lower.includes("no rdp application")) {
-          description = t("ConnectError.RdpAppMissing");
+          description = withPath(t("ConnectError.RdpAppMissing"));
         } else if (lower.includes("no vnc application")) {
-          description = t("ConnectError.VncAppMissing");
+          description = withPath(t("ConnectError.VncAppMissing"));
         } else if (lower.includes("no database application")) {
-          description = t("ConnectError.DbAppMissing");
+          description = withPath(t("ConnectError.DbAppMissing"));
         } else if (lower.includes("failed to execute rdp application")) {
-          description = t("ConnectError.RdpAppFailed");
+          description = withPath(t("ConnectError.RdpAppFailed"));
         } else if (lower.includes("failed to execute vnc application")) {
-          description = t("ConnectError.VncAppFailed");
+          description = withPath(t("ConnectError.VncAppFailed"));
         } else if (lower.includes("failed to execute database application")) {
-          description = t("ConnectError.DbAppFailed");
+          description = withPath(t("ConnectError.DbAppFailed"));
         }
 
         toast.add({

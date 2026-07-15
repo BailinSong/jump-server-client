@@ -44,7 +44,8 @@ export default defineAppConfig({
     },
     toast: {
       slots: {
-        description: "text-sm text-muted whitespace-pre-wrap break-all"
+        title: "select-text",
+        description: "text-sm text-muted whitespace-pre-wrap break-all select-text"
       }
     },
     formField: {

@@ -15,6 +15,11 @@ export const useApplicationConfig = () => {
     );
   };
 
+  const formatExecutableNotFound = (raw: string) => {
+    const path = raw.replace(/^\s*executable not found:\s*/i, "").trim();
+    return path ? `${t("Setting.ExecutableNotFound")}\n${path}` : t("Setting.ExecutableNotFound");
+  };
+
   const getConfig = async () => {
     const config = await useTauriCoreInvoke("get_config");
 
@@ -59,7 +64,7 @@ export const useApplicationConfig = () => {
     } catch (error) {
       const message = String(error ?? "");
       const description = message.toLowerCase().includes("executable not found")
-        ? t("Setting.ExecutableNotFound")
+        ? formatExecutableNotFound(message)
         : message || t("Common.OperationFailed");
 
       toast.add({
