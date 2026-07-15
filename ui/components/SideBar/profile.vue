@@ -198,17 +198,17 @@ const toolChildren = computed<DropdownMenuItem[][]>(() => [
   ]
 ]);
 
-const profileMenuItems = computed<DropdownMenuItem[][]>(() => [
-  [
+const profileDisplayName = computed(() => {
+  if (loggedIn.value) return currentUser.value?.name || "";
+  return t("Common.UnSigned");
+});
+
+const profileMenuItems = computed<DropdownMenuItem[][]>(() => {
+  const mainItems: DropdownMenuItem[] = [
     {
       label: t("Login.AddAccount"),
       icon: "i-lucide-user-round-plus",
       onClick: openLoginPage
-    },
-    {
-      label: t("Login.SwitchSite"),
-      icon: "i-lucide-arrow-down-up",
-      children: switchAccountChildren()
     },
     {
       label: t("Common.Appearance"),
@@ -225,22 +225,36 @@ const profileMenuItems = computed<DropdownMenuItem[][]>(() => [
       icon: "solar:global-outline",
       children: languageChildren.value
     }
-  ],
-  [
-    {
-      label: t("Login.Logout"),
-      icon: "solar:login-outline",
-      color: "error",
-      ui: {
-        itemLabel:
-          "!text-error group-data-highlighted:!text-error group-data-[state=open]:!text-error group-data-[state=checked]:!text-error",
-        itemLeadingIcon:
-          "group-data-[state=checked]:text-error group-data-highlighted:!text-error group-data-[state=open]:!text-error"
-      },
-      onClick: clearAuthInfo
-    }
-  ]
-]);
+  ];
+
+  if (loggedIn.value) {
+    mainItems.splice(1, 0, {
+      label: t("Login.SwitchSite"),
+      icon: "i-lucide-arrow-down-up",
+      children: switchAccountChildren()
+    });
+
+    return [
+      mainItems,
+      [
+        {
+          label: t("Login.Logout"),
+          icon: "solar:login-outline",
+          color: "error",
+          ui: {
+            itemLabel:
+              "!text-error group-data-highlighted:!text-error group-data-[state=open]:!text-error group-data-[state=checked]:!text-error",
+            itemLeadingIcon:
+              "group-data-[state=checked]:text-error group-data-highlighted:!text-error group-data-[state=open]:!text-error"
+          },
+          onClick: clearAuthInfo
+        }
+      ]
+    ];
+  }
+
+  return [mainItems];
+});
 
 watch(
   () => userTheme.value,
@@ -789,7 +803,6 @@ onBeforeUnmount(() => {
 
 <template>
   <UDropdownMenu
-    v-if="loggedIn"
     :items="profileMenuItems"
     size="sm"
     side="top"
@@ -810,21 +823,15 @@ onBeforeUnmount(() => {
         :ui="props.collapse ? { root: 'justify-center gap-0' } : undefined"
       >
         <template #name>
-          <UTooltip v-if="!props.collapse" arrow :text="currentUser?.name">
+          <UTooltip v-if="!props.collapse" arrow :text="profileDisplayName">
             <span class="block md:max-w-[150px] truncate leading-tight text-sm font-medium cursor-pointer">
-              {{ currentUser?.name }}
+              {{ profileDisplayName }}
             </span>
           </UTooltip>
         </template>
       </UUser>
     </div>
   </UDropdownMenu>
-
-  <UButton v-else variant="subtle" icon="line-md:log-in" class="w-full mb-2" @click="openLoginPage">
-    <span v-if="!props.collapse">
-      {{ t("Common.Login") }}
-    </span>
-  </UButton>
 
   <Modal
     v-model:open="openModal"

@@ -18,10 +18,8 @@ const VIDEO_PLAYER_TARGET_HEIGHT = 920;
 
 const { parseFiles } = useVideoPlayerParser();
 const { deleteTempFile } = useVideoPlayerTauri();
-const { userTheme, manualSetTheme } = useThemeAdapter();
 
 const currentItem = computed(() => items.value.find((item) => item.id === activeId.value) || null);
-const isDarkMode = computed(() => userTheme.value === "dark");
 
 const playerComponent = computed(() => {
   switch (currentItem.value?.type) {
@@ -121,10 +119,6 @@ function handleInputChange(event: Event) {
   void importFiles(files);
 }
 
-function toggleThemeMode() {
-  manualSetTheme(isDarkMode.value ? "light" : "dark");
-}
-
 async function handleWindowDrag(event: MouseEvent) {
   const target = event.target as HTMLElement | null;
 
@@ -205,25 +199,6 @@ onBeforeUnmount(async () => {
     <div class="mx-auto flex h-full w-full max-w-[1700px] flex-col px-6 py-5 lg:px-8">
       <header class="relative mb-2 h-8" @mousedown="handleWindowDrag">
         <div data-tauri-drag-region class="absolute inset-0 z-0" />
-
-        <div
-          class="relative z-10 flex h-full items-center justify-end gap-2 pointer-events-auto"
-          data-tauri-drag-region="false"
-        >
-          <UButton
-            color="neutral"
-            variant="ghost"
-            :icon="
-              isDarkMode
-                ? 'line-md:moon-filled-to-sunny-filled-loop-transition'
-                : 'line-md:sunny-filled-loop-to-moon-filled-transition'
-            "
-            data-tauri-drag-region="false"
-            @click="toggleThemeMode"
-          >
-            {{ isDarkMode ? "切换浅色" : "切换暗色" }}
-          </UButton>
-        </div>
       </header>
 
       <p v-if="importMessage && items.length === 0" class="mb-4 text-sm text-(--ui-text-muted)">

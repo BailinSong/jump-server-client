@@ -630,33 +630,27 @@ export const useAssetAction = () => {
         const payload = event.payload as eventPayload;
         const raw = payload.error || "";
         const lower = raw.toLowerCase();
-        const withDetail = (base: string) => {
-          const detail = raw.trim();
-          const parts = [base];
-          if (detail && detail !== base) parts.push(detail);
-          return parts.join("\n");
-        };
 
         let description = raw || t("ConnectError.ConnectFailed");
 
         if (lower.includes("executable not found")) {
-          description = withDetail(t("ConnectError.ClientNotFound"));
+          description = t("Setting.ExecutableNotFound");
         } else if (lower.includes("failed to launch client")) {
-          description = withDetail(t("ConnectError.ClientLaunchFailed"));
+          description = t("ConnectError.ClientLaunchFailed");
         } else if (lower.includes("client process exited")) {
-          description = withDetail(t("ConnectError.ClientExited"));
+          description = t("ConnectError.ClientExited");
         } else if (lower.includes("no rdp application")) {
-          description = withDetail(t("ConnectError.RdpAppMissing"));
+          description = t("ConnectError.RdpAppMissing");
         } else if (lower.includes("no vnc application")) {
-          description = withDetail(t("ConnectError.VncAppMissing"));
+          description = t("ConnectError.VncAppMissing");
         } else if (lower.includes("no database application")) {
-          description = withDetail(t("ConnectError.DbAppMissing"));
+          description = t("ConnectError.DbAppMissing");
         } else if (lower.includes("failed to execute rdp application")) {
-          description = withDetail(t("ConnectError.RdpAppFailed"));
+          description = t("ConnectError.RdpAppFailed");
         } else if (lower.includes("failed to execute vnc application")) {
-          description = withDetail(t("ConnectError.VncAppFailed"));
+          description = t("ConnectError.VncAppFailed");
         } else if (lower.includes("failed to execute database application")) {
-          description = withDetail(t("ConnectError.DbAppFailed"));
+          description = t("ConnectError.DbAppFailed");
         }
 
         toast.add({

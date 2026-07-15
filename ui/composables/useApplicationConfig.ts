@@ -5,12 +5,6 @@ export const useApplicationConfig = () => {
   const toast = useToast();
   const { setAppConfig, appConfig, hydrationPromise } = useSettingManager();
 
-  const withErrorDetail = (base: string, raw: string) => {
-    const detail = raw.trim();
-    if (!detail || detail === base) return base;
-    return `${base}\n${detail}`;
-  };
-
   const isValidAppConfig = (cfg: any): cfg is AppConfigType => {
     return (
       !!cfg
@@ -65,7 +59,7 @@ export const useApplicationConfig = () => {
     } catch (error) {
       const message = String(error ?? "");
       const description = message.toLowerCase().includes("executable not found")
-        ? withErrorDetail(t("Setting.ExecutableNotFound"), message)
+        ? t("Setting.ExecutableNotFound")
         : message || t("Common.OperationFailed");
 
       toast.add({
