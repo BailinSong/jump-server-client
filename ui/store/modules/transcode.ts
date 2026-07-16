@@ -57,6 +57,12 @@ export interface TranscodeTaskItem {
   duration?: number | null
 }
 
+const transcodeErrorKeyMap: Record<string, string> = {
+  ERR_ALREADY_TRANSCODED: "Transcode.ERR_ALREADY_TRANSCODED",
+  ERR_REPLAY_JSON_NOT_FOUND: "Transcode.ERR_REPLAY_JSON_NOT_FOUND",
+  ERR_RECORDING_DATA_NOT_FOUND: "Transcode.ERR_RECORDING_DATA_NOT_FOUND",
+};
+
 let listenerRegistered = false;
 
 export const useTranscodeStore = defineStore(
@@ -64,6 +70,10 @@ export const useTranscodeStore = defineStore(
   () => {
     const { t } = useI18n();
     const toast = useToast();
+    const resolveError = (raw: string): string => {
+      const key = transcodeErrorKeyMap[raw];
+      return key ? t(key) : raw;
+    };
 
     const archivePaths = ref<string[]>([]);
     const outputDir = ref("");
@@ -299,7 +309,7 @@ export const useTranscodeStore = defineStore(
       const incomingDuration = payload.duration ?? null;
 
       if (successFlag === true || successFlag === false) {
-        const message = successFlag ? t("Transcode.Completed") : payload.message || t("Transcode.StatusFailed");
+        const message = successFlag ? t("Transcode.Completed") : resolveError(payload.message) || t("Transcode.StatusFailed");
         markTaskCompleted(targetIndex, successFlag, outputValue, message, incomingMetadata, incomingDuration);
         return;
       }
@@ -353,7 +363,7 @@ export const useTranscodeStore = defineStore(
           targetIndex,
           result.success,
           result.output,
-          result.success ? t("Transcode.Completed") : result.error || t("Transcode.StatusFailed"),
+          result.success ? t("Transcode.Completed") : resolveError(result.error || "") || t("Transcode.StatusFailed"),
           result.metadata ?? null
         );
       });

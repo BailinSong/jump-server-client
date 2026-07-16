@@ -71,7 +71,7 @@
   },
   "Transcode": {
     "Title": "Replay Transcode",
-    "Description": "Choose one or multiple .tar recording archive files for MP4 conversion.",
+    "Description": "Choose one or multiple RDP/VNC recording archive (.tar) files for MP4 conversion.",
     "SelectedArchives": "{count} archive(s) selected",
     "TotalProgress": "Overall {progress}%",
     "CompletedCount": "Completed {completed}/{total}",
@@ -82,7 +82,7 @@
     "ArchivesHint": "Single and multiple selection are both supported, and you can append more archives later.",
     "SelectArchives": "Add archives",
     "ClearArchives": "Clear list",
-    "EmptyArchives": "Add replay archives to transcode",
+    "EmptyArchives": "Add RDP/VNC recording archives to transcode",
     "OutputTitle": "Output directory",
     "OutputHint": "Generated MP4 files will be written to this directory.",
     "OutputDirectory": "Output directory",
@@ -130,7 +130,7 @@
     "Close": "Close",
     "Cancel": "Cancel",
     "Confirm": "Confirm",
-    "FilenameStyle": "Filename style",
+    "FilenameStyle": "Output filename style",
     "FilenameOriginal": "Original (UUID)",
     "FilenameFriendly": "Friendly name (user-asset-account)",
     "FilenameFriendlyUuid": "Friendly name + UUID",
@@ -147,7 +147,10 @@
     "PowerFull": "Full speed (all CPUs)",
     "PowerFast": "Fast (3/4 CPU)",
     "PowerMedium": "Medium (1/2 CPU)",
-    "PowerLow": "Low (1/4 CPU)"
+    "PowerLow": "Low (1/4 CPU)",
+    "ERR_ALREADY_TRANSCODED": "This recording has already been transcoded. Please extract and play the MP4 file directly.",
+    "ERR_REPLAY_JSON_NOT_FOUND": "replay.json not found. Please ensure the tar file is an RDP/VNC recording.",
+    "ERR_RECORDING_DATA_NOT_FOUND": "Recording data not found. Please ensure the tar file is an RDP/VNC recording."
   },
   "VideoPlayer": {
     "ImportingFiles": "Importing {count} file(s)…",
