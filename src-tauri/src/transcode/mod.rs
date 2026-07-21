@@ -540,6 +540,7 @@ fn extract_tar_payloads(
 
     let mut replay_json: Option<Vec<u8>> = None;
     let mut parts: Vec<(usize, Vec<u8>)> = Vec::new();
+    let mut mp4_files: Vec<String> = Vec::new();
 
     for entry_result in archive.entries().map_err(|e| {
         (
@@ -586,19 +587,33 @@ fn extract_tar_payloads(
                 )
             })?;
             parts.push((index, buf));
+        } else if filename.ends_with(".mp4") {
+            mp4_files.push(filename);
         }
     }
 
     let replay_json = replay_json.ok_or_else(|| {
+        if !mp4_files.is_empty() {
+            return (
+                fallback_session_id.to_string(),
+                "ERR_ALREADY_TRANSCODED".to_string(),
+            );
+        }
         (
             fallback_session_id.to_string(),
-            "replay.json not found in tar archive".to_string(),
+            "ERR_REPLAY_JSON_NOT_FOUND".to_string(),
         )
     })?;
     if parts.is_empty() {
+        if !mp4_files.is_empty() {
+            return Err((
+                fallback_session_id.to_string(),
+                "ERR_ALREADY_TRANSCODED".to_string(),
+            ));
+        }
         return Err((
             fallback_session_id.to_string(),
-            ".part.gz file not found in tar archive".to_string(),
+            "ERR_RECORDING_DATA_NOT_FOUND".to_string(),
         ));
     }
     parts.sort_by_key(|(index, _)| *index);
