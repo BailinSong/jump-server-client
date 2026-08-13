@@ -5,7 +5,7 @@ pub(crate) mod assets {
     pub(crate) const FAVORITE_NODE_ASSETS: &str = "/api/v1/perms/users/self/nodes/favorite/assets/";
 
     pub(crate) fn detail(asset_id: &str) -> String {
-        format!("/api/v1/perms/users/self/assets/{}", asset_id)
+        format!("/api/v1/perms/users/self/assets/{}/", asset_id)
     }
 }
 
