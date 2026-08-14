@@ -54,15 +54,28 @@ type DBInfo struct {
 	AllowInvalidCert string `json:"allow_invalid_cert"`
 }
 
+type ConnectOptions struct {
+	UseSysDBA bool `json:"use_sysdba"`
+}
+
 type Info struct {
-	Version  string `json:"version"`
-	Name     string `json:"name"`
-	Protocol string `json:"protocol"`
-	Command  string `json:"command"`
-	Asset    `json:"asset"`
-	Endpoint `json:"endpoint"`
-	Token    `json:"token"`
-	File     `json:"file"`
+	Version        string         `json:"version"`
+	Name           string         `json:"name"`
+	Protocol       string         `json:"protocol"`
+	Command        string         `json:"command"`
+	ConnectOptions ConnectOptions `json:"connect_options"`
+	Asset          `json:"asset"`
+	Endpoint       `json:"endpoint"`
+	Token          `json:"token"`
+	File           `json:"file"`
+}
+
+func getDatabaseArgFormat(r *Rouse, appItem *config.AppItem) string {
+	argFormat := appItem.ArgFormat
+	if appItem.Name == "dbeaver" && r.Protocol == "oracle" && r.ConnectOptions.UseSysDBA {
+		argFormat += "|authProp.oracle.logon-as=sysdba"
+	}
+	return argFormat
 }
 
 type Rouse struct {
