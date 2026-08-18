@@ -55,7 +55,7 @@
       {
         "cmd": "ControlClick",
         "type": "30,12",
-        "element": "[CLASS:TButton; INSTANCE:3]"
+        "element": "[CLASS:TButton; INSTANCE:2]"
       }
     ]
   },
