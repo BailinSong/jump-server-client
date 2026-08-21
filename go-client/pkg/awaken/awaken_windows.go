@@ -382,7 +382,7 @@ func handleDB(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 		connectMap["url"] = url
 	}
 	if len(appItem.AutoIt) == 0 {
-		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
+		commands := getCommandFromArgs(connectMap, getDatabaseArgFormat(r, appItem))
 		if appItem.Name == "heidisql" && r.Protocol == "postgresql" {
 			commands += " -db=" + r.DBName
 		}

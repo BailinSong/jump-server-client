@@ -355,7 +355,7 @@ func awakenDBCommand(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 				return nil, fmt.Errorf("No database application configured or found (selected path: %s, reason: %v)", appItem.Path, err)
 			}
 		}
-		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
+		commands := getCommandFromArgs(connectMap, getDatabaseArgFormat(r, appItem))
 		return exec.Command(appPath, strings.Split(commands, " ")...), nil
 	}
 }

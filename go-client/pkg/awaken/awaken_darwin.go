@@ -203,7 +203,7 @@ func awakenDBCommand(r *Rouse, cfg *config.AppConfig) (*exec.Cmd, error) {
 		if r.Protocol == "sqlserver" && appItem.Name != "dbx" {
 			connectMap["protocol"] = "mssql_jdbc_ms_new"
 		}
-		commands := getCommandFromArgs(connectMap, appItem.ArgFormat)
+		commands := getCommandFromArgs(connectMap, getDatabaseArgFormat(r, appItem))
 		return exec.Command(appPath, strings.Split(commands, " ")...), nil
 	}
 }
