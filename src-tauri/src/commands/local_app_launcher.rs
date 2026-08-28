@@ -42,6 +42,8 @@ struct AssetInfo {
 #[derive(Debug, Default, Deserialize)]
 struct Asset {
     #[serde(default)]
+    name: String,
+    #[serde(default)]
     info: AssetInfo,
 }
 
@@ -85,8 +87,8 @@ struct Application {
 
 fn decode_payload(raw: &str) -> Result<LaunchPayload, String> {
     let encoded = raw
-        .strip_prefix("jms2://")
-        .or_else(|| raw.strip_prefix("jms://"))
+        .strip_prefix("jms://")
+        .or_else(|| raw.strip_prefix("jms2://"))
         .ok_or_else(|| "invalid local client URL scheme".to_string())?;
     let decoded = BASE64_STANDARD
         .decode(encoded)
@@ -222,6 +224,14 @@ fn decoded_name(payload: &LaunchPayload) -> String {
     sanitized_name(&payload.name)
 }
 
+fn asset_name(payload: &LaunchPayload) -> String {
+    if !payload.asset.name.is_empty() {
+        payload.asset.name.clone()
+    } else {
+        payload.asset.info.asset_name.clone()
+    }
+}
+
 fn username(payload: &LaunchPayload) -> String {
     if ["ssh", "sftp", "telnet"].contains(&payload.protocol.as_str()) {
         format!("JMS-{}", payload.token.id)
@@ -245,7 +255,7 @@ fn variables(payload: &LaunchPayload) -> HashMap<&'static str, String> {
         ("port", payload.endpoint.port.to_string()),
         ("dbname", database),
         ("url", navicat_url(payload)),
-        ("asset_name", payload.asset.info.asset_name.clone()),
+        ("asset_name", asset_name(payload)),
     ]);
     if payload.protocol == "sqlserver" {
         values.insert("dbeaver_protocol", "mssql_jdbc_ms_new".to_string());
@@ -328,6 +338,7 @@ fn jms_connect_json(payload: &LaunchPayload) -> Result<String, String> {
         "host": payload.endpoint.host,
         "port": payload.endpoint.port,
         "asset": {
+            "name": asset_name(payload),
             "info": {
                 "db_name": payload.asset.info.db_name
             }
@@ -729,7 +740,7 @@ mod tests {
         let encoded = BASE64_STANDARD.encode(
             br#"{"protocol":"ssh","client":"iterm","name":"root","endpoint":{"host":"localhost","port":2222},"token":{"id":"id","value":"secret"},"asset":{},"file":{}}"#,
         );
-        let payload = decode_payload(&format!("jms2://{encoded}")).unwrap();
+        let payload = decode_payload(&format!("jms://{encoded}")).unwrap();
         assert_eq!(payload.client, "iterm");
         assert_eq!(username(&payload), "JMS-id");
     }
@@ -754,6 +765,34 @@ mod tests {
             render("{username}@{host} -p {port}", &values),
             "JMS-id@localhost -p 2222"
         );
+    }
+
+    #[test]
+    fn substitutes_asset_name_from_core_payload() {
+        let encoded = BASE64_STANDARD.encode(
+            br#"{"protocol":"ssh","name":"root@prod-web[2026-08-28_15:00:00]","endpoint":{"host":"localhost","port":2222},"token":{"id":"id","value":"secret"},"asset":{"id":"a1","name":"prod-web","info":{"db_name":"app"}},"file":{}}"#,
+        );
+        let payload = decode_payload(&format!("jms://{encoded}")).unwrap();
+        let values = variables(&payload);
+        assert_eq!(
+            values.get("asset_name").map(String::as_str),
+            Some("prod-web")
+        );
+        assert_eq!(
+            render("-newtab {asset_name} {username}@{host}", &values),
+            "-newtab prod-web JMS-id@localhost"
+        );
+        let connect = jms_connect_json(&payload).unwrap();
+        assert!(connect.contains(r#""name":"prod-web"#));
+    }
+
+    #[test]
+    fn substitutes_asset_name_from_info_fallback() {
+        let encoded = BASE64_STANDARD.encode(
+            br#"{"protocol":"ssh","endpoint":{"host":"localhost","port":22},"token":{"id":"id","value":"secret"},"asset":{"info":{"asset_name":"legacy-host"}},"file":{}}"#,
+        );
+        let payload = decode_payload(&format!("jms://{encoded}")).unwrap();
+        assert_eq!(asset_name(&payload), "legacy-host");
     }
 
     #[test]

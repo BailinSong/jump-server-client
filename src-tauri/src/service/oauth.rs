@@ -386,7 +386,7 @@ fn oauth_redirect_uri() -> &'static str {
     if cfg!(debug_assertions) {
         "http://127.0.0.1:14876/auth/callback"
     } else {
-        "jms2://auth/callback"
+        "jms://auth/callback"
     }
 }
 

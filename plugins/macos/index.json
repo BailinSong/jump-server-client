@@ -55,6 +55,16 @@
       "id": "macos.tigervnc",
       "name": "tigervnc",
       "category": "remotedesktop"
+    },
+    {
+      "id": "macos.warp",
+      "name": "warp",
+      "category": "terminal"
+    },
+    {
+      "id": "macos.warp-cn",
+      "name": "warp_cn",
+      "category": "terminal"
     }
   ]
 }

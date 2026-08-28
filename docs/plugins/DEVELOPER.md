@@ -109,6 +109,8 @@ Copy-Item -Recurse plugins\demo\hello-terminal `
 }
 ```
 
+模板替换支持 `{username}`、`{host}`、`{port}`、`{value}`、`{asset_name}` 等变量，完整列表见 [架构设计](DESIGN.md)。`{asset_name}` 是 JumpServer 资产名称；`{name}` 是转义后的会话标题（通常为 `账号@资产[时间]`）。
+
 `executable.type` 取值：
 
 | 值 | 说明 |

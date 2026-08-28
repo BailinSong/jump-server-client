@@ -45,14 +45,14 @@ const isGuideConnectMethod = (value: string) => value.endsWith("_guide");
 const isLocalClientMethod = (method: { type?: string } | undefined) =>
   ["native", "client", "local", "desktop"].includes(String(method?.type || "").toLowerCase());
 const normalizeTauriLocalClientUrl = (url: string) =>
-  url.startsWith("jms://") ? `jms2://${url.slice("jms://".length)}` : url;
+  url.startsWith("jms2://") ? `jms://${url.slice("jms2://".length)}` : url;
 const withLocalClientName = (url: string, clientName?: string) => {
-  if (!clientName || !url.startsWith("jms2://")) return url;
-  const decoded = Uint8Array.from(atob(url.slice("jms2://".length)), (character) => character.charCodeAt(0));
+  if (!clientName || !url.startsWith("jms://")) return url;
+  const decoded = Uint8Array.from(atob(url.slice("jms://".length)), (character) => character.charCodeAt(0));
   const payload = JSON.parse(new TextDecoder().decode(decoded));
   payload.client_name = clientName;
   const encoded = new TextEncoder().encode(JSON.stringify(payload));
-  return `jms2://${btoa(String.fromCharCode(...encoded))}`;
+  return `jms://${btoa(String.fromCharCode(...encoded))}`;
 };
 const pendingBuiltinSessions: Array<{
   tabId?: string;
@@ -369,7 +369,7 @@ export const useAssetAction = () => {
       if (isTauriRuntime() || isLocalClientMethod(method)) {
         const { url } = await getLocalClientUrl(token.id, buildLocalRdpParams());
         const localClientUrl = isTauriRuntime() ? normalizeTauriLocalClientUrl(url || "") : url;
-        const expectedScheme = isTauriRuntime() ? "jms2://" : "jms://";
+        const expectedScheme = "jms://";
         if (!localClientUrl?.startsWith(expectedScheme)) {
           throw new Error("Invalid local client URL");
         }

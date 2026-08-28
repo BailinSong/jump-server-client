@@ -907,7 +907,7 @@
     "CustomTerminalPath": "Executable Path",
     "CustomTerminalPathPlaceholder": "For example /Applications/Ghostty.app/Contents/MacOS/ghostty",
     "CustomTerminalTemplate": "Launch Template",
-    "CustomTerminalTemplateHelp": "You can use variables such as {helper}, {protocol}, {username}, {host}, {port}, and {value}.",
+    "CustomTerminalTemplateHelp": "You can use variables such as {helper}, {protocol}, {username}, {host}, {port}, {value}, and {asset_name}. {asset_name} is the asset name; {name} is the escaped session title.",
     "CustomTerminalTemplatePlaceholder": "For example -e {helper} {protocol} {username}{'@'}{host} -p {port} -P {value}",
     "CustomTerminalCreateSuccess": "Custom terminal created",
     "CustomTerminalCreateFailed": "Failed to create custom terminal",

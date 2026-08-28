@@ -1,0 +1,32 @@
+{
+  "platform": "macos",
+  "match_first": [],
+  "is_default": false,
+  "is_set": false,
+  "is_internal": true,
+  "executable": {
+    "type": "application_bundle",
+    "default": "/Applications/Warp-cn.app"
+  },
+  "launch": {
+    "type": "script",
+    "script": "scripts/launch.macos.sh",
+    "interpreter": "/bin/bash",
+    "use_ssh_helper": true,
+    "protocol_aliases": {
+      "telnet": "ssh"
+    }
+  },
+  "env": {
+    "JMS_HELPER": "{helper}",
+    "JMS_PROTOCOL": "{protocol}",
+    "JMS_USERNAME": "{username}",
+    "JMS_HOST": "{host}",
+    "JMS_PORT": "{port}",
+    "JMS_VALUE": "{value}",
+    "JMS_ASSET_NAME": "{asset_name}",
+    "JMS_WARP_APP": "/Applications/Warp-cn.app",
+    "JMS_WARP_SCHEME": "warposs"
+  },
+  "display_name": "Warp CN"
+}

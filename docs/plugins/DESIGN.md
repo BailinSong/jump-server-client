@@ -160,7 +160,8 @@ my-terminal-plugin/
 
 | 变量 | 说明 |
 |------|------|
-| `{name}` | 连接会话名（已转义） |
+| `{name}` | 连接会话名（已转义，通常为 `账号@资产[时间]`） |
+| `{asset_name}` | 资产名称（Core 下发的 `asset.name`，不做文件名转义） |
 | `{protocol}` | 协议名 |
 | `{username}` | 账号（SSH 类会加 `JMS-` 前缀） |
 | `{value}` | 密码/Token |

@@ -1,0 +1,20 @@
+{
+  "id": "macos.warp",
+  "name": "warp",
+  "display_name": "Warp",
+  "version": "1.0.0",
+  "min_client_version": "4.0.0",
+  "author": "JumpServer",
+  "homepage": "https://www.warp.dev/",
+  "download_url": "https://www.warp.dev/download",
+  "category": "terminal",
+  "protocols": [
+    "ssh",
+    "telnet"
+  ],
+  "builtin": true,
+  "comment": {
+    "zh": "Warp 是一款面向开发者的现代终端。通过临时 Launch / Tab 配置用 warp:// 打开 JumpServer SSH 会话。\n\n!!!手动下载安装 Warp.app，点击保存启用!!!",
+    "en": "Warp is a modern terminal for developers. Opens JumpServer SSH sessions via a temporary warp:// launch or tab config.\n\n!!!Install Warp.app, then click Save to enable!!!"
+  }
+}

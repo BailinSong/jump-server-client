@@ -910,7 +910,7 @@
     "CustomTerminalPath": "可执行路径",
     "CustomTerminalPathPlaceholder": "例如 /Applications/Ghostty.app/Contents/MacOS/ghostty",
     "CustomTerminalTemplate": "启动参数模板",
-    "CustomTerminalTemplateHelp": "可使用 {helper}、{protocol}、{username}、{host}、{port}、{value} 等变量。",
+    "CustomTerminalTemplateHelp": "可使用 {helper}、{protocol}、{username}、{host}、{port}、{value}、{asset_name} 等变量。{asset_name} 是资产名称，{name} 是转义后的会话名。",
     "CustomTerminalTemplatePlaceholder": "例如 -e {helper} {protocol} {username}{'@'}{host} -p {port} -P {value}",
     "CustomTerminalCreateSuccess": "自定义终端已创建",
     "CustomTerminalCreateFailed": "创建自定义终端失败",
