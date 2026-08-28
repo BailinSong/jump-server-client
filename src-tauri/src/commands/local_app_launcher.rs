@@ -35,6 +35,8 @@ struct ConnectionFile {
 struct AssetInfo {
     #[serde(default)]
     db_name: String,
+    #[serde(default)]
+    asset_name: String,
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -243,6 +245,7 @@ fn variables(payload: &LaunchPayload) -> HashMap<&'static str, String> {
         ("port", payload.endpoint.port.to_string()),
         ("dbname", database),
         ("url", navicat_url(payload)),
+        ("asset_name", payload.asset.info.asset_name.clone()),
     ]);
     if payload.protocol == "sqlserver" {
         values.insert("dbeaver_protocol", "mssql_jdbc_ms_new".to_string());
