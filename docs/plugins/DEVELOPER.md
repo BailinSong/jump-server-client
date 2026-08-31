@@ -45,8 +45,9 @@ Copy-Item -Recurse plugins\demo\hello-terminal `
 
 ```bash
 ./plugins/tools/pack.sh plugins/demo/hello-terminal
-# 生成 dist/demo.hello-terminal@1.0.0.jscplugin
-# 在客户端「设置 → 插件管理」中选择该文件安装（阶段 2 功能）
+# 生成 dist/plugins/demo.hello-terminal@1.0.0.jscplugin
+# 在客户端「设置 → 应用」中上传该文件安装
+# 打包全部平台插件：pnpm pack:plugins
 ```
 
 ### 6. 打包分发

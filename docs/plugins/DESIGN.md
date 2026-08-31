@@ -95,7 +95,7 @@ plugins/
 
 ## 插件包结构
 
-每个插件是一个目录，打包为 `{id}-{version}.jscplugin`（ZIP，扩展名自定义）。
+每个插件是一个目录，打包为 `{id}@{version}.jscplugin`（ZIP，扩展名自定义）。
 
 ```
 my-terminal-plugin/
@@ -306,6 +306,8 @@ sequenceDiagram
 
 ```bash
 ./plugins/tools/pack.sh plugins/demo/hello-terminal
+# 全部平台插件：python3 scripts/pack-client-plugins.py
+# 发布时由 .github/workflows/build.yml 的 pack-plugins job 上传到 GitHub Release
 ```
 
 ---

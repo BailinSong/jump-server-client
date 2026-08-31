@@ -34,7 +34,13 @@ mkdir -p "$(dirname "$DEST")" && cp -R "$PLUGIN_DIR" "$DEST"
 ./plugins/tools/pack.sh plugins/demo/hello-terminal
 ```
 
-输出：`dist/demo.hello-terminal@1.0.0.jscplugin`
+输出：`dist/plugins/demo.hello-terminal@1.0.0.jscplugin`
+
+打全部平台插件（发布用）：
+
+```bash
+pnpm pack:plugins
+```
 
 ## 改造为真实工具
 

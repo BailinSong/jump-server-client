@@ -81,6 +81,72 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  pack-plugins:
+    name: pack jscplugin artifacts
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+
+      - name: Pack .jscplugin archives
+        run: python3 scripts/pack-client-plugins.py --self-check && python3 scripts/pack-client-plugins.py
+
+      - name: List plugin packages
+        id: list
+        run: |
+          {
+            echo 'matrix<<EOF'
+            python3 scripts/pack-client-plugins.py --ci-matrix
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      # Staging blob for the per-plugin artifact jobs. Each plugin is also a
+      # separate GitHub Release asset below.
+      - name: Upload packed plugins for split artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: jscplugin-staging
+          path: dist/plugins/*.jscplugin
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload each plugin package to release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.VERSION }}
+          files: dist/plugins/*.jscplugin
+          fail_on_unmatched_files: true
+          draft: true
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  upload-plugin-artifacts:
+    name: ${{ matrix.file }}
+    needs: pack-plugins
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.pack-plugins.outputs.matrix) }}
+    steps:
+      - name: Download packed plugins
+        uses: actions/download-artifact@v4
+        with:
+          name: jscplugin-staging
+          path: dist/plugins
+
+      - name: Upload ${{ matrix.file }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/plugins/${{ matrix.file }}
+          if-no-files-found: error
+
   build:
     name: build tauri app (${{ matrix.target || matrix.platform }})
     permissions:
@@ -91,14 +157,19 @@ jobs:
         include:
           - platform: macos-latest # for Arm based macs (M1 and above).
             target: aarch64-apple-darwin
+            bundles: dmg
           - platform: macos-latest # for Intel based macs.
             target: x86_64-apple-darwin
+            bundles: dmg
           - platform: ubuntu-22.04 # for Tauri v1 you could replace this with ubuntu-20.04.
             target: ""
+            bundles: ""
           - platform: ubuntu-22.04-arm
             target: ""
+            bundles: ""
           - platform: windows-latest
             target: ""
+            bundles: ""
 
     runs-on: ${{ matrix.platform }}
     env:
@@ -206,8 +277,9 @@ jobs:
 
         with:
           # Create/update release draft on both tag/push and manual dispatch.
+          # macOS main package is DMG only (--bundles dmg); other platforms keep their native installers.
           tagName: ${{ env.VERSION }}
-          args: ${{ matrix.target != '' && '--target ' || '' }}${{ matrix.target }}
+          args: ${{ matrix.target != '' && format('--target {0}', matrix.target) || '' }}${{ matrix.bundles != '' && format(' --bundles {0}', matrix.bundles) || '' }}
           releaseName: JumpServer Client v__VERSION__
           releaseBody: See the assets to download this version and install.
           releaseDraft: true

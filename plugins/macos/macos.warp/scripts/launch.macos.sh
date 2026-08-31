@@ -11,11 +11,32 @@ USERNAME="${JMS_USERNAME:-}"
 HOST="${JMS_HOST:-}"
 PORT="${JMS_PORT:-22}"
 VALUE="${JMS_VALUE:-}"
-TITLE="${JMS_ASSET_NAME:-JMS}"
 WARP_APP="${JMS_WARP_APP:-/Applications/Warp.app}"
 WARP_SCHEME="${JMS_WARP_SCHEME:-warp}"
 METHOD="${JMS_WARP_METHOD:-launch}"
 DRY_RUN="${JMS_WARP_DRY_RUN:-}"
+
+# Warp TOML/YAML plus this script's heredoc/osascript break on \ " $ ` and control chars.
+sanitize_title() {
+  local s=${1:-}
+  s=${s//\\/_}
+  s=${s//\"/_}
+  s=${s//\$/_}
+  s=${s//\`/_}
+  s=${s//\'/_}
+  s=${s//;/_}
+  s=${s//&/_}
+  s=${s//|/_}
+  s=${s//</_}
+  s=${s//>/_}
+  s=${s//$'\n'/_}
+  s=${s//$'\r'/_}
+  s=${s//$'\t'/ }
+  s=$(printf '%s' "$s" | tr -s '_')
+  printf '%s' "${s:-JMS}"
+}
+
+TITLE="$(sanitize_title "${JMS_ASSET_NAME:-JMS}")"
 
 warp_home() {
   if [[ -n "${JMS_WARP_HOME:-}" ]]; then
@@ -91,7 +112,7 @@ launch_in_existing_window() {
   safe_cmd="$(toml_escape "${FULL_CMD}")"
   cfg_path="${dir}/${name}.toml"
   cat >"${cfg_path}" <<EOF
-name = "JumpServer ${TITLE}"
+name = "$(toml_escape "JumpServer ${TITLE}")"
 title = "${safe_title}"
 
 [[panes]]
@@ -187,14 +208,17 @@ self_check() {
   export JMS_WARP_HOME="${tmp}/.warp"
   DRY_RUN=1
   WARP_SCHEME=warp
-  TITLE='db "prod"'
+  TITLE="$(sanitize_title 'foo\bar"x$y')"
+  [[ "${TITLE}" == 'foo_bar_x_y' ]]
+  [[ "$(sanitize_title 'a\\"$b')" == 'a_b' ]]
   FULL_CMD='/tmp/client ssh JMS-id@host -p 2222 -P tok'
   launch_via_config
   launch_in_existing_window
   yaml="$(echo "${tmp}"/.warp/launch_configurations/jms-*.yaml)"
   toml="$(echo "${tmp}"/.warp/tab_configs/jms-*.toml)"
   grep -q 'exec: "/tmp/client ssh JMS-id@host -p 2222 -P tok"' "${yaml}"
-  grep -q 'title: "JMS db \\"prod\\""' "${yaml}"
+  grep -q 'title: "JMS foo_bar_x_y"' "${yaml}"
+  grep -q 'name = "JumpServer foo_bar_x_y"' "${toml}"
   grep -q 'commands = \["/tmp/client ssh JMS-id@host -p 2222 -P tok"\]' "${toml}"
   rm -rf "${tmp}"
   echo "warp launcher self-check ok"

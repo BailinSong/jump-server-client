@@ -29,6 +29,15 @@ macos.tigervnc/
 应用发现、选择和启动均由 Tauri/Rust 直接读取这里的插件配置。Go 工程只保留 SSH
 终端 helper，不再维护应用启动配置的副本。
 
+## 打包
+
+```bash
+pnpm pack:plugins
+# 或 ./plugins/tools/pack.sh plugins/macos/macos.warp
+```
+
+输出在 `dist/plugins/*.jscplugin`。打 `v*` 标签或手动触发 Build and Release 时，每个插件包作为独立 GitHub Release 资源上传；macOS 主程序只发布 `.dmg`。
+
 ## 文档
 
 - [架构设计](../docs/plugins/DESIGN.md)
