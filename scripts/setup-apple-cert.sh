@@ -7,8 +7,12 @@ set -e
 
 # Check required environment variables
 if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_CERTIFICATE_PASSWORD" ] || [ -z "$KEYCHAIN_PASSWORD" ]; then
-  echo "Apple signing secrets are not configured; building an unsigned macOS package."
-  echo "Set APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, and KEYCHAIN_PASSWORD to enable signing."
+  echo "Apple signing secrets are not configured; using ad-hoc signing for the macOS package."
+  echo "Set APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, and KEYCHAIN_PASSWORD to enable Developer ID signing."
+  # "-" is Tauri's ad-hoc identity; do not pass an empty p12 into `security import`.
+  if [ -n "$GITHUB_ENV" ]; then
+    echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+  fi
   exit 0
 fi
 
