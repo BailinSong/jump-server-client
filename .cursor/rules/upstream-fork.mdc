@@ -1,0 +1,19 @@
+---
+description: Keep this fork's launcher; match official version; port upstream bugfixes
+alwaysApply: true
+---
+
+# Fork vs upstream (`jumpserver/clients`)
+
+This repo tracks official `dev` but is **not** a thin overlay. Keep our branch (`dev`). Do not `reset --hard` to upstream.
+
+**Keep (do not take upstream replacements):**
+- Rust `local_app_launcher` (no `go-client`)
+- UI HTTP asset/detail APIs (no `asset_actions` / `useAssetFetcher` event bus)
+- `{asset_name}` template, `jms://`, Warp / Warp CN, `.jscplugin` CI
+
+**Version:** source `package.json` / `Cargo.toml` / `tauri.conf.json` / `ui/app.config.ts` match the latest official **release tag** (e.g. `v4.1.7` → `4.1.7`). CI still overwrites the string on tag via `pnpm run set_version`.
+
+**Periodic upstream sync:** `git fetch upstream && git merge upstream/dev`. On conflicts, keep our launcher/UI; then **port the bugfix into our files** (same behavior, current architecture). Skip if already present. After merge, bump the version string if official tagged a newer release.
+
+Ahead-of-upstream commit count is expected. Behind must stay 0.
