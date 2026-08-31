@@ -14,7 +14,9 @@ plugins/
 ├── linux/                      # Linux 内置插件
 ├── demo/
 │   └── hello-terminal/         # 第三方开发示例
-└── schema/                     # JSON Schema
+├── schema/                     # JSON Schema
+└── tools/
+    └── pack.sh                 # 打包 .jscplugin
 ```
 
 ## 单个插件结构

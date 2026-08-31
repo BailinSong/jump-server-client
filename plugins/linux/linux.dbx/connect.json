@@ -1,5 +1,5 @@
 {
-  "platform": "windows",
+  "platform": "linux",
   "match_first": [],
   "is_default": false,
   "is_set": false,
@@ -11,7 +11,7 @@
   },
   "launch": {
     "type": "args",
-    "template": "mongodb://{username}:{value}@{host}:{port}/{dbname}?authSource=admin&loadBalanced=true&retryWrites=false"
+    "template": "dbx://connection/new?name={name}&type={protocol}&user={username}&password={value}&database={dbname}&host={host}&port={port}&one_time=true"
   },
-  "display_name": "MongoDB Compass"
+  "display_name": "DBX"
 }

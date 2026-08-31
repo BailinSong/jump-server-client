@@ -17,8 +17,8 @@
   ],
   "builtin": true,
   "comment": {
-    "zh": "数据库管理软件",
-    "en": "Database management software."
+    "zh": "数据库管理软件，只适配 v17.0.13 版本。",
+    "en": "Database management software, only compatible with v17.0.13."
   },
   "permissions": [
     "autoit",

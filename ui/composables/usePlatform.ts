@@ -3,7 +3,7 @@
  * 提供跨平台的平台检测功能
  */
 export const usePlatform = () => {
-  const platform = ref<string>("");
+  const platform = ref<string>("unknown");
   const isLoading = ref(true);
 
   // 计算属性：判断是否为 macOS
@@ -15,7 +15,18 @@ export const usePlatform = () => {
   // 计算属性：判断是否为 Linux
   const isLinux = computed(() => platform.value === "linux");
 
-  // 获取平台信息,如果无法获取平台信息，默认为 windows
+  const detectPlatformFromUserAgent = () => {
+    if (typeof navigator === "undefined") return "unknown";
+
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("windows")) return "win32";
+    if (ua.includes("mac os") || ua.includes("macintosh")) return "darwin";
+    if (ua.includes("linux")) return "linux";
+
+    return "unknown";
+  };
+
+  // 获取平台信息，如果 Tauri OS 插件暂时不可用，则退回到浏览器环境判断
   const getPlatform = async () => {
     try {
       isLoading.value = true;
@@ -25,9 +36,9 @@ export const usePlatform = () => {
       }
 
       const currentPlatform = await useTauriOsPlatform();
-      platform.value = currentPlatform;
+      platform.value = currentPlatform || detectPlatformFromUserAgent();
     } catch {
-      platform.value = "win32";
+      platform.value = detectPlatformFromUserAgent();
     } finally {
       isLoading.value = false;
     }

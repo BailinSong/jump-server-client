@@ -25,6 +25,12 @@ export const useThemeAdapter = () => {
     return (await useTauriWindowGetCurrentWindow().theme()) || "light";
   };
 
+  const broadcastThemeChange = (mode: Theme | "withSystem") => {
+    void useTauriEventEmit("theme-changed", { mode }).catch((err) => {
+      console.debug("broadcast theme change failed", err);
+    });
+  };
+
   const waitHydration = async () => {
     if (isHydrated.value) return;
 
@@ -98,6 +104,7 @@ export const useThemeAdapter = () => {
     setThemeMode(theme as any);
     uiColorMode.preference = theme;
     setTheme(theme);
+    broadcastThemeChange(theme);
   };
 
   const enableFollowSystem = async () => {
@@ -111,6 +118,8 @@ export const useThemeAdapter = () => {
       uiColorMode.preference = osTheme;
       setTheme(osTheme);
     }
+
+    broadcastThemeChange("withSystem");
   };
 
   const applyThemePreference = (theme: Theme) => {
