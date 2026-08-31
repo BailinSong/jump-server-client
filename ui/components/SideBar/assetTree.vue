@@ -43,6 +43,8 @@ const nodeMenuPosition = ref({ x: 0, y: 0 });
 const nodeMenuTarget = ref<{ node: AssetTreeNode; kind: PanelKind } | null>(null);
 let lastErrorSignature = "";
 let lastErrorAt = 0;
+const rootRequestIds: Record<PanelKind, number> = { authorization: 0, type: 0 };
+let searchRequestId = 0;
 
 const activeTree = computed(() => {
   if (activeTreeKind.value === "authorization") {
@@ -164,9 +166,11 @@ const reportError = (error: unknown) => {
 const loadRoot = async (kind: PanelKind) => {
   if (!loggedIn.value) return;
   if (kind === "authorization") loadRecentConnections();
+  const requestId = ++rootRequestIds[kind];
   loading.value = true;
   try {
     const nodes = await fetchTree(kind);
+    if (requestId !== rootRequestIds[kind]) return;
     if (kind === "authorization") {
       const roots = removeFavoriteNodes(nodes);
       authorizationNodes.value = roots;
@@ -184,9 +188,10 @@ const loadRoot = async (kind: PanelKind) => {
       typeNodes.value = unwrapAllTypesRoot(nodes);
     }
   } catch (error) {
+    if (requestId !== rootRequestIds[kind]) return;
     reportError(error);
   } finally {
-    loading.value = false;
+    if (requestId === rootRequestIds[kind]) loading.value = false;
   }
 };
 
@@ -407,17 +412,24 @@ const nodeMenuItems = computed<DropdownMenuItem[]>(() => {
 });
 
 const searchTree = useDebounceFn(async (keyword: string) => {
+  const requestId = ++searchRequestId;
   if (!keyword.trim() || !loggedIn.value) {
-    searchNodes.value = [];
+    if (requestId === searchRequestId) {
+      searchNodes.value = [];
+      searchLoading.value = false;
+    }
     return;
   }
   searchLoading.value = true;
   try {
-    searchNodes.value = await fetchTree("search", undefined, keyword.trim());
+    const nodes = await fetchTree("search", undefined, keyword.trim());
+    if (requestId !== searchRequestId) return;
+    searchNodes.value = nodes;
   } catch (error) {
+    if (requestId !== searchRequestId) return;
     reportError(error);
   } finally {
-    searchLoading.value = false;
+    if (requestId === searchRequestId) searchLoading.value = false;
   }
 }, 250);
 

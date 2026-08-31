@@ -1,6 +1,7 @@
 import type { ConnectionFormInfo } from "~/composables/useAssetConnection";
 import type { AssetItem, ConnectionInfo, ConnectionPreferenceInfo, PermedAccount, PermedProtocol } from "~/types";
 
+import { ApiRequestError } from "~/composables/useApiRequest";
 import { useUserInfoStore } from "~/store/modules/userInfo";
 import { sortPermedProtocols, sortProtocolNames } from "~/utils";
 
@@ -155,14 +156,29 @@ export function useConnectionFormState() {
   const loadAssetDetails = async (asset: AssetItem) => {
     const hasDetails = asset.permedAccounts?.length && asset.permedProtocols?.length;
     if (hasDetails) return asset;
-    const detail = await getAssetDetailRequest(asset.id, userInfoStore.currentUser?.org?.id || "");
-    return {
-      ...asset,
-      permedAccounts: detail.permed_accounts ?? asset.permedAccounts ?? [],
-      permedProtocols: (detail.permed_protocols ?? asset.permedProtocols ?? []).filter(
+    try {
+      const detail = await getAssetDetailRequest(asset.id, userInfoStore.currentUser?.org?.id || "");
+      const permedAccounts = detail.permed_accounts ?? asset.permedAccounts ?? [];
+      const permedProtocols = (detail.permed_protocols ?? asset.permedProtocols ?? []).filter(
         (protocol: PermedProtocol) => protocol?.name !== "winrm"
-      )
-    };
+      );
+      useEventBus().emit("assetDetailUpdated", {
+        assetId: asset.id,
+        permedAccounts,
+        permedProtocols
+      });
+      return {
+        ...asset,
+        permedAccounts,
+        permedProtocols
+      };
+    } catch (error) {
+      useEventBus().emit("assetDetailFailed", {
+        assetId: asset.id,
+        status: error instanceof ApiRequestError ? error.status : undefined
+      });
+      throw error;
+    }
   };
 
   return {

@@ -2,6 +2,7 @@
 import type { AssetItem } from "~/types";
 
 import ConnectFormFields from "~/components/ConnectForm/fields.vue";
+import { ApiRequestError } from "~/composables/useApiRequest";
 
 const { t } = useI18n();
 const { addErrorToast } = useErrorToast();
@@ -32,10 +33,13 @@ const loadAsset = async () => {
     initDraft(currentAsset.value, request.options.protocol);
   } catch (error) {
     if (sequence !== loadSequence || activeRequest.value?.id !== request.id) return;
+    const unauthorized = error instanceof ApiRequestError && error.status === 401;
     addErrorToast({
-      title: t("Asset.GetAssetFailed"),
-      description: String(error),
-      icon: "i-lucide-circle-alert"
+      title: unauthorized ? t("Login.LoginAuthenticationExpired") : t("Asset.GetAssetFailed"),
+      description: unauthorized ? t("Login.LoginAuthenticationExpiredDescription") : t("ConnectError.ConnectFailed"),
+      icon: "line-md:close-circle",
+      progress: true,
+      duration: 4000
     });
     settle(null);
   } finally {

@@ -3,6 +3,7 @@ import type { WorkspaceSessionTab } from "~/composables/useWorkspaceTabs";
 import type { AssetItem, AssetPageType } from "~/types/index";
 
 import ConnectFormFields from "~/components/ConnectForm/fields.vue";
+import { ApiRequestError } from "~/composables/useApiRequest";
 import {
   isExternalClientConnectMethod,
   parseLocalApplicationConnectMethod,
@@ -21,6 +22,7 @@ const props = withDefaults(
 
 const { t } = useI18n();
 const { confirmConnection } = useAssetConnection();
+const { addErrorToast } = useErrorToast();
 const { getMethodsForProtocol } = useConnectMethods();
 const { closePane, startSessionConnection } = useWorkspaceTabs();
 const { buildConnectionInfo, draft, initDraft, loadAssetDetails, preferredConnectMethod } = useConnectionFormState();
@@ -79,16 +81,34 @@ const resetLaunchSuccessState = () => {
   launchedProtocol.value = "";
 };
 
+let loadAssetRequestId = 0;
+
 async function loadAsset() {
   const asset = currentAsset.value || props.tab.setupAsset;
   if (!asset) return;
 
+  const requestId = ++loadAssetRequestId;
+  const tabId = props.tab.id;
   loading.value = true;
+  connectionError.value = "";
   try {
-    currentAsset.value = await loadAssetDetails(asset);
+    const next = await loadAssetDetails(asset);
+    if (requestId !== loadAssetRequestId || props.tab.id !== tabId) return;
+    currentAsset.value = next;
     initDraft(currentAsset.value, props.tab.protocol);
+  } catch (error) {
+    if (requestId !== loadAssetRequestId || props.tab.id !== tabId) return;
+    const unauthorized = error instanceof ApiRequestError && error.status === 401;
+    connectionError.value = unauthorized ? t("Login.LoginAuthenticationExpired") : t("Asset.GetAssetFailed");
+    addErrorToast({
+      title: unauthorized ? t("Login.LoginAuthenticationExpired") : t("Asset.GetAssetFailed"),
+      description: unauthorized ? t("Login.LoginAuthenticationExpiredDescription") : t("ConnectError.ConnectFailed"),
+      icon: "line-md:close-circle",
+      progress: true,
+      duration: 4000
+    });
   } finally {
-    loading.value = false;
+    if (requestId === loadAssetRequestId) loading.value = false;
   }
 }
 

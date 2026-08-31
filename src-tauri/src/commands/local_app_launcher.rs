@@ -47,6 +47,12 @@ struct Asset {
     info: AssetInfo,
 }
 
+#[derive(Debug, Default, Deserialize)]
+struct ConnectOptions {
+    #[serde(default)]
+    use_sysdba: bool,
+}
+
 #[derive(Debug, Deserialize)]
 struct LaunchPayload {
     protocol: String,
@@ -62,6 +68,8 @@ struct LaunchPayload {
     file: ConnectionFile,
     #[serde(default)]
     asset: Asset,
+    #[serde(default)]
+    connect_options: ConnectOptions,
 }
 
 #[derive(Debug, Clone)]
@@ -356,6 +364,14 @@ fn is_terminal_driver(driver: &str) -> bool {
         driver,
         "terminal" | "iterm2" | "linux-terminal" | "windows-terminal"
     )
+}
+
+fn dbeaver_oracle_sysdba_suffix(app_name: &str, protocol: &str, use_sysdba: bool) -> &'static str {
+    if app_name == "dbeaver" && protocol == "oracle" && use_sysdba {
+        "|authProp.oracle.logon-as=sysdba"
+    } else {
+        ""
+    }
 }
 
 fn prepare_driver(
@@ -707,7 +723,12 @@ pub fn launch_local_application(app: AppHandle, raw: String) -> Result<(), Strin
         .get(&payload.protocol)
         .map(String::as_str)
         .unwrap_or(&application.arg_format);
-    let arguments = render(template, &values);
+    let mut arguments = render(template, &values);
+    arguments.push_str(dbeaver_oracle_sysdba_suffix(
+        &application.name,
+        &payload.protocol,
+        payload.connect_options.use_sysdba,
+    ));
 
     log::info!(
         "Launching configured application: name={}, protocol={}, driver={}, type={}",
@@ -798,5 +819,33 @@ mod tests {
     #[test]
     fn recognizes_windows_terminal_driver() {
         assert!(is_terminal_driver("windows-terminal"));
+    }
+
+    #[test]
+    fn appends_dbeaver_oracle_sysdba_flag() {
+        assert_eq!(
+            dbeaver_oracle_sysdba_suffix("dbeaver", "oracle", true),
+            "|authProp.oracle.logon-as=sysdba"
+        );
+        assert_eq!(dbeaver_oracle_sysdba_suffix("dbeaver", "oracle", false), "");
+        assert_eq!(dbeaver_oracle_sysdba_suffix("dbeaver", "mysql", true), "");
+        assert_eq!(dbeaver_oracle_sysdba_suffix("navicat", "oracle", true), "");
+    }
+
+    #[test]
+    fn decodes_oracle_sysdba_connect_option() {
+        let encoded = BASE64_STANDARD.encode(
+            br#"{"protocol":"oracle","endpoint":{"host":"localhost","port":1521},"token":{"id":"id","value":"secret"},"connect_options":{"use_sysdba":true}}"#,
+        );
+        let payload = decode_payload(&format!("jms://{encoded}")).unwrap();
+        assert!(payload.connect_options.use_sysdba);
+        assert_eq!(
+            dbeaver_oracle_sysdba_suffix(
+                "dbeaver",
+                &payload.protocol,
+                payload.connect_options.use_sysdba
+            ),
+            "|authProp.oracle.logon-as=sysdba"
+        );
     }
 }

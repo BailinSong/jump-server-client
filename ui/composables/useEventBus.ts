@@ -27,6 +27,10 @@ type BusEvents = {
     permedAccounts: PermedAccount[];
     permedProtocols: PermedProtocol[];
   };
+  assetDetailFailed: {
+    assetId: string;
+    status?: number;
+  };
   workspaceConnectAsset: AssetItem;
 } & Record<EventType, unknown>;
 

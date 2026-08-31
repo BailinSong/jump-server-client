@@ -46,6 +46,14 @@ impl PluginService {
         }
     }
 
+    // linux.mstsc was renamed to xfreerdp; remmina is a real user choice and must stay.
+    fn linux_rdp_replacement(plugin_id: &str) -> Option<&'static str> {
+        match plugin_id {
+            "linux.mstsc" => Some("linux.xfreerdp"),
+            _ => None,
+        }
+    }
+
     fn resolve_resource_dir(app: &AppHandle, candidates: &[&str], marker: &str) -> Option<PathBuf> {
         for candidate in candidates {
             let Ok(path) = app.path().resolve(candidate, BaseDirectory::Resource) else {
@@ -264,15 +272,16 @@ impl PluginService {
                 .get_mut("selections")
                 .and_then(|v| v.as_object_mut())
             {
-                match selections.get("remotedesktop:rdp").and_then(|v| v.as_str()) {
-                    Some("linux.mstsc") | Some("linux.remmina") => {
-                        selections.insert(
-                            "remotedesktop:rdp".to_string(),
-                            Value::String("linux.xfreerdp".to_string()),
-                        );
-                        changed = true;
-                    }
-                    _ => {}
+                if let Some(next) = selections
+                    .get("remotedesktop:rdp")
+                    .and_then(|v| v.as_str())
+                    .and_then(Self::linux_rdp_replacement)
+                {
+                    selections.insert(
+                        "remotedesktop:rdp".to_string(),
+                        Value::String(next.to_string()),
+                    );
+                    changed = true;
                 }
             }
         }
@@ -1274,5 +1283,20 @@ impl PluginService {
             .map_err(|e| format!("write plugins-state.json failed: {}", e))?;
 
         Self::list_plugins(app, config_dir)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrates_obsolete_linux_mstsc_but_keeps_remmina() {
+        assert_eq!(
+            PluginService::linux_rdp_replacement("linux.mstsc"),
+            Some("linux.xfreerdp")
+        );
+        assert_eq!(PluginService::linux_rdp_replacement("linux.remmina"), None);
+        assert_eq!(PluginService::linux_rdp_replacement("linux.xfreerdp"), None);
     }
 }

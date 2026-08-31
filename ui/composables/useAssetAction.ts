@@ -1,6 +1,7 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import type { AssetItem, ConnectionBody, PermedAccount, PermedProtocol, TokenResponse } from "~/types";
 
+import { ApiRequestError } from "~/composables/useApiRequest";
 import {
   isConnectMethodAvailable,
   K8S_NATIVE_VALUE,
@@ -829,6 +830,20 @@ export const useAssetAction = () => {
       })
       .catch((error) => {
         console.debug("get asset detail failed", { assetId, error });
+        const unauthorized = error instanceof ApiRequestError && error.status === 401;
+        addErrorToast({
+          title: unauthorized ? t("Login.LoginAuthenticationExpired") : t("Asset.GetAssetFailed"),
+          description: unauthorized
+            ? t("Login.LoginAuthenticationExpiredDescription")
+            : t("ConnectError.ConnectFailed"),
+          icon: "line-md:close-circle",
+          progress: true,
+          duration: 4000
+        });
+        useEventBus().emit("assetDetailFailed", {
+          assetId,
+          status: error instanceof ApiRequestError ? error.status : undefined
+        });
       });
   };
 
