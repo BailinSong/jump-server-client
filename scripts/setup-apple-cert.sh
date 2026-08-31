@@ -6,19 +6,10 @@
 set -e
 
 # Check required environment variables
-if [ -z "$APPLE_CERTIFICATE" ]; then
-  echo "Error: APPLE_CERTIFICATE environment variable is required"
-  exit 1
-fi
-
-if [ -z "$APPLE_CERTIFICATE_PASSWORD" ]; then
-  echo "Error: APPLE_CERTIFICATE_PASSWORD environment variable is required"
-  exit 1
-fi
-
-if [ -z "$KEYCHAIN_PASSWORD" ]; then
-  echo "Error: KEYCHAIN_PASSWORD environment variable is required"
-  exit 1
+if [ -z "$APPLE_CERTIFICATE" ] || [ -z "$APPLE_CERTIFICATE_PASSWORD" ] || [ -z "$KEYCHAIN_PASSWORD" ]; then
+  echo "Apple signing secrets are not configured; building an unsigned macOS package."
+  echo "Set APPLE_CERTIFICATE, APPLE_CERTIFICATE_PASSWORD, and KEYCHAIN_PASSWORD to enable signing."
+  exit 0
 fi
 
 # Mask sensitive values in logs
